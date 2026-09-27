@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#142b45">
+  <meta name="robots" content="noindex">
+  <meta name="description" content="Start Vantry AI's missed-call text-back service for $199/month. Fully managed, month-to-month, cancel anytime.">
+  <title>Get Started — Vantry AI</title>
+  <link rel="icon" type="image/png" href="favicon.png">
+  <!--
+    VANTRY AI — GET STARTED / CHECKOUT LANDING PAGE
+    Purpose: a low-friction page to send prospects to instead of a mailto:
+    link. Shows exactly what they get, the price, and one clear action.
+
+    STRIPE LINK: search "STRIPE_LINK_HERE" below (two spots: the button href
+    values). Replace both with the real Stripe payment link the moment the
+    Stripe identity review clears and the link is created. Until then this
+    page's button links to text-us.html as a safe placeholder so nothing on
+    the live site is a dead link or a fake "buy" button.
+
+    This page intentionally has NO nav bar and NO other links off the page
+    except the logo (back home) and the single action button — fewer exits,
+    higher conversion.
+  -->
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #142b45;
+      --muted: #52647a;
+      --blue: #2459ce;
+      --blue-dark: #1745a7;
+      --accent: #c2540f;
+      --pale: #edf3fa;
+      --line: #dbe3ed;
+      --paper: #ffffff;
+      --green: #14644e;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+    a { color: inherit; }
+    svg { display: block; flex: 0 0 auto; }
+    .icon { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+    .container { width: min(640px, calc(100% - 40px)); margin-inline: auto; }
+    header { padding-block: 26px; border-bottom: 1px solid var(--line); }
+    .header-inner { display: flex; justify-content: center; }
+    .brand { display: inline-flex; align-items: center; gap: 10px; font-size: 1.3rem; letter-spacing: -.05em; font-weight: 750; text-decoration: none; }
+    .brand-mark { display: grid; place-items: center; width: 30px; height: 30px; }
+    .brand-mark img { width: 100%; height: 100%; object-fit: contain; display: block; }
+    .brand-ai { font-size: .7rem; letter-spacing: .035em; border: 1px solid #bac8d8; padding: 3px 5px; margin-left: -2px; border-radius: 4px; }
+    main { padding-block: 56px 80px; }
+    .eyebrow { margin-bottom: 14px; font-size: .8125rem; font-weight: 750; letter-spacing: .1em; text-transform: uppercase; color: var(--accent); text-align: center; }
+    h1 { margin: 0 0 14px; font-size: clamp(1.9rem, 5vw, 2.5rem); font-weight: 750; letter-spacing: -.04em; line-height: 1.15; text-align: center; }
+    .lede { margin: 0 auto 40px; max-width: 480px; color: var(--muted); font-size: 1.0625rem; text-align: center; }
+    .price-card { padding: 34px 30px; border: 1px solid #b8c9de; border-top: 4px solid var(--accent); border-radius: 16px; background: white; box-shadow: 0 18px 50px #16355312; }
+    .price-card .plan-name { font-size: 1.2rem; font-weight: 700; }
+    .price { margin-top: 14px; display: flex; align-items: baseline; gap: 8px; }
+    .price strong { font-size: 3.4rem; font-weight: 750; letter-spacing: -.06em; line-height: 1; }
+    .price span { font-size: 1rem; color: var(--muted); }
+    .terms { margin-top: 10px; color: var(--muted); font-size: .875rem; }
+    .includes-label { margin: 26px 0 15px; font-size: .8125rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+    .includes { list-style: none; padding: 0; margin: 0; display: grid; gap: 15px; }
+    .includes li { display: flex; align-items: flex-start; gap: 12px; font-size: .9688rem; }
+    .includes .icon { width: 19px; height: 19px; margin-top: 2px; color: var(--green); flex: 0 0 auto; }
+    .cta-button {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 12px;
+      width: 100%;
+      min-height: 58px;
+      margin-top: 30px;
+      padding: 16px 24px;
+      border: none;
+      border-radius: 9px;
+      color: white;
+      background: var(--blue);
+      font-weight: 700;
+      font-size: 1.0625rem;
+      text-decoration: none;
+      text-align: center;
+    }
+    .cta-button:hover { background: var(--blue-dark); }
+    .cta-note { margin-top: 14px; text-align: center; color: var(--muted); font-size: .8125rem; }
+    .reassure { display: flex; flex-wrap: wrap; justify-content: center; gap: 18px 30px; margin-top: 34px; }
+    .reassure-item { display: flex; align-items: center; gap: 8px; font-size: .875rem; font-weight: 600; color: var(--muted); }
+    .reassure-item .icon { width: 17px; height: 17px; color: var(--green); }
+    .faq { margin-top: 46px; }
+    .faq h2 { font-size: 1.0625rem; text-align: center; margin-bottom: 20px; }
+    .faq-item { padding: 18px 0; border-top: 1px solid var(--line); }
+    .faq-item:last-child { border-bottom: 1px solid var(--line); }
+    .faq-item strong { display: block; font-size: .9375rem; margin-bottom: 6px; }
+    .faq-item p { margin: 0; color: var(--muted); font-size: .9375rem; }
+    footer { padding-block: 28px; text-align: center; color: var(--muted); font-size: .8125rem; border-top: 1px solid var(--line); }
+    footer a { color: var(--blue); text-decoration: none; font-weight: 600; }
+    @media (max-width: 540px) {
+      .price-card { padding: 26px 20px; }
+      .price strong { font-size: 2.9rem; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container header-inner">
+      <a class="brand" href="index.html" aria-label="Vantry AI home">
+        <span class="brand-mark"><img src="logo-icon.png" alt="" width="30" height="30"></span>
+        Vantry <span class="brand-ai">AI</span>
+      </a>
+    </div>
+  </header>
+
+  <main>
+    <div class="container">
+      <p class="eyebrow">Missed-call text-back, done for you</p>
+      <h1>Stop losing jobs to voicemail.</h1>
+      <p class="lede">One flat monthly price. We set it up, we keep it running, you keep your customers.</p>
+
+      <div class="price-card">
+        <p class="plan-name">Vantry AI — Missed Call Text-Back</p>
+        <p class="price"><strong>$199</strong><span>/ month</span></p>
+        <p class="terms">Founding client rate · Billed monthly · Cancel anytime, no contract</p>
+
+        <p class="includes-label">What's included</p>
+        <ul class="includes">
+          <li><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg>Complete setup on your existing business number — nothing to install</li>
+          <li><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg>Instant, HVAC-specific text sent the moment a call goes unanswered</li>
+          <li><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg>An alert to you with the customer's number, ready for callback</li>
+          <li><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg>Emergency no-heat/no-AC handling built into the auto-reply</li>
+          <li><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg>Ongoing monitoring and management — we keep it running</li>
+          <li><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg>Month-to-month. Cancel anytime, no long-term contract</li>
+        </ul>
+
+        <!-- STRIPE_LINK_HERE: replace this href with the real Stripe payment
+             link once created. Currently points to the opt-in page as a safe
+             placeholder — never a dead link or a fake "pay" button. -->
+        <a class="cta-button" href="text-us.html">
+          Get started — $199/month
+          <svg class="icon" aria-hidden="true"><use href="#i-arrow"/></svg>
+        </a>
+        <p class="cta-note">You'll be taken to a secure checkout to enter payment details. Questions first? Email <a href="mailto:booking@vantryai.com">booking@vantryai.com</a>.</p>
+      </div>
+
+      <div class="reassure">
+        <span class="reassure-item"><svg class="icon" aria-hidden="true"><use href="#i-shield"/></svg>Secure checkout</span>
+        <span class="reassure-item"><svg class="icon" aria-hidden="true"><use href="#i-calendar"/></svg>Cancel anytime</span>
+        <span class="reassure-item"><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg>No setup fee</span>
+      </div>
+
+      <section class="faq" aria-labelledby="faq-title">
+        <h2 id="faq-title">Quick questions</h2>
+        <div class="faq-item">
+          <strong>How fast is it live?</strong>
+          <p>Typically within 48 hours of signing up. We handle the setup — you just tell us your business number.</p>
+        </div>
+        <div class="faq-item">
+          <strong>Do I need new hardware or software?</strong>
+          <p>No. You keep your existing business phone number. Nothing to install, no app to learn.</p>
+        </div>
+        <div class="faq-item">
+          <strong>Can I cancel?</strong>
+          <p>Yes, anytime. It's billed month-to-month with no long-term contract.</p>
+        </div>
+        <div class="faq-item">
+          <strong>What happens after I sign up?</strong>
+          <p>We'll reach out to confirm your business number and get the text-back system connected — no action needed from you beyond that.</p>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <footer>
+    &copy; 2026 Vantry AI · <a href="mailto:booking@vantryai.com">booking@vantryai.com</a>
+  </footer>
+
+  <svg xmlns="http://www.w3.org/2000/svg" width="0" height="0" aria-hidden="true" style="position:absolute;overflow:hidden">
+    <defs>
+      <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
+      <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M4 12h16m-6-6 6 6-6 6"/></symbol>
+      <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 22s8-4 8-11V5l-8-3-8 3v6c0 7 8 11 8 11Z"/><path d="m8 12 3 3 5-6"/></symbol>
+      <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18m-13 5h3"/></symbol>
+    </defs>
+  </svg>
+</body>
+</html>
