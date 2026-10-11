@@ -309,6 +309,7 @@ check(apex.status === 301 && apex.headers.get("Location") === "https://www.green
 const live = await call("/", {}, "https://www.greenridgelawn.com");
 const liveHtml = await live.text();
 check(live.status === 200 && liveHtml.includes(`data-site="${orderId1}"`) && !liveHtml.includes("Make it live"), "live site serves with a working quote form and no preview bar");
+check(liveHtml.includes("Website by <a href=\"https://vantryai.com/?ref=site\""), "live sites carry a small 'Website by Vantry' link");
 check(liveHtml.includes('"@type":"LocalBusiness"') && liveHtml.includes('rel="canonical" href="https://www.greenridgelawn.com/"'), "live site has Google business info");
 check((await (await call("/robots.txt", {}, "https://www.greenridgelawn.com")).text()).includes("sitemap.xml"), "robots.txt and sitemap for Google");
 

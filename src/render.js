@@ -154,7 +154,7 @@ summary{font-weight:600;cursor:pointer}.formmsg{margin:0;font-weight:600}details
 .quote{background:var(--brand);color:var(--brandText);border-radius:18px;padding:36px}
 form{display:grid;gap:12px;margin-top:16px;max-width:520px}
 input,textarea{font:inherit;padding:12px 14px;border-radius:10px;border:1px solid var(--line);width:100%}
-footer{padding:28px 0;color:var(--muted);font-size:14px;border-top:1px solid var(--line)}
+footer{padding:28px 0;color:var(--muted);font-size:14px;border-top:1px solid var(--line)}.byv a{color:inherit}
 .btn{white-space:nowrap}header{gap:12px}.logo{min-width:0}
 @media (max-width:860px){.art{opacity:.35;width:70%}}
 @media (max-width:640px){.pnote{display:block}.pbar{gap:8px}.hero{padding:8px 0 56px}section{padding:44px 0}.call .num{display:none}.call{padding:10px 16px}}
@@ -190,7 +190,7 @@ ${bar}
   <script>${formScript}</script>
 </div></div></section>
 
-<footer><div class="wrap">© ${new Date().getFullYear()} ${esc(input.businessName)}${phone ? " · " + phone : ""}</div></footer>
+<footer><div class="wrap">© ${new Date().getFullYear()} ${esc(input.businessName)}${phone ? " · " + phone : ""}${lead ? ' <span class="byv">· Website by <a href="https://vantryai.com/?ref=site" rel="noopener">Vantry</a></span>' : ""}</div></footer>
 </body></html>`;
 }
 
