@@ -9,7 +9,7 @@ export function page({ title, body, script = "", noindex = true }) {
 <title>${esc(title)} | Vantry</title>
 ${noindex ? '<meta name="robots" content="noindex">' : ""}
 <meta name="referrer" content="no-referrer">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='18' fill='%234B3FD6'/%3E%3Ctext x='32' y='45' text-anchor='middle' font-family='Georgia' font-size='49' fill='white'%3Ev%3C/text%3E%3C/svg%3E">
+<link rel="icon" type="image/png" sizes="32x32" href="https://vantryai.com/favicon-32.png"><link rel="apple-touch-icon" href="https://vantryai.com/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
