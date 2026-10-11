@@ -137,6 +137,29 @@
     .final-cta h2{margin-bottom:10px}
     .final-cta p{color:var(--muted);margin-bottom:26px}
     @media(max-width:760px){.proof-inner{grid-template-columns:1fr;gap:26px}.proof-stat strong{font-size:46px}.pricing-grid{grid-template-columns:1fr;max-width:480px}.addon,.guarantee{max-width:480px}.cost-row{grid-template-columns:1fr auto;gap:4px 14px;padding:16px 18px}.cost-work{grid-column:1/-1}.cost-amt{font-size:22px;text-align:right}.hero-action{margin-bottom:36px}.final-cta{padding:60px 0}}
+
+    /* Fit the whole hero, examples included, on a laptop screen */
+    @media(min-width:761px){
+      .hero{padding:clamp(22px,3.6vh,46px) 0 26px}
+      .hero .eyebrow{margin-bottom:8px}
+      .hero h1{font-size:clamp(40px,min(4.4vw,7vh),64px);line-height:1.08;margin-bottom:12px}
+      .hero-sub{max-width:780px;margin-bottom:18px}
+      .hero-action{margin:0 auto clamp(16px,2.6vh,28px)}
+      .hero-action .jelly-lg{min-height:58px;padding-block:14px}
+      .hero-action .trust-row{margin-top:12px}
+      .gallery-caption{display:none}
+      .style-gallery{max-width:940px;min-height:0;gap:22px;padding:6px 8px 16px;align-items:start}
+      .style-card:nth-child(1){transform:translateY(10px) rotate(-1.2deg)}
+      .style-card:nth-child(3){transform:translateY(10px) rotate(1.2deg)}
+      .mini{height:clamp(150px,26vh,245px)}
+      .mini-content,.mini-modern .mini-content,.mini-editorial .mini-content,.mini-minimal .mini-content{padding:clamp(14px,2.2vh,22px) 18px;max-width:80%}
+      .mini-brand{margin-bottom:clamp(8px,1.6vh,16px)}
+      .mini-title,.mini-editorial .mini-title,.mini-minimal .mini-title{font-size:clamp(20px,3vh,27px);max-width:none;margin-bottom:clamp(8px,1.4vh,13px)}
+      .card-label{padding:10px 16px}
+      .card-label span:last-child{width:26px;height:26px}
+      .example-note{margin-top:4px}
+      .bubble{top:38%}
+    }
 </style>
 </head>
 <body>
