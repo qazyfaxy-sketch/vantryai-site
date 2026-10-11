@@ -236,6 +236,23 @@
     .dream-frame .live-call{background:var(--live-accent,#fff)!important;color:var(--live-site-bg,#0B1B3F)!important;-webkit-text-fill-color:currentColor!important;padding:8px 12px!important;border-radius:6px!important;font-weight:600!important}
     .live-kicker{text-transform:none!important;letter-spacing:0!important}
     @media(max-width:760px){.dream-frame .live-kicker{display:none!important}.dream-frame .live-body h3{font-size:19px!important;max-width:62%}.dream-frame .live-landscape{width:92px!important;height:92px!important;top:54px!important}}
+
+    /* Menu: plain icon button and a clean dropdown */
+    .menu-toggle{border:0!important;background:transparent!important;padding:0!important;width:44px;height:44px;min-height:44px;border-radius:12px!important;color:var(--navy)!important;align-items:center;justify-content:center}
+    .menu-toggle svg{width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round}
+    .menu-toggle .i-close{display:none}
+    .menu-toggle[aria-expanded="true"] .i-open{display:none}.menu-toggle[aria-expanded="true"] .i-close{display:block}
+    .menu-toggle:hover{background:#EEF4FF!important}
+    @media(max-width:760px){
+      .menu-toggle{display:inline-flex!important}
+      .js .nav-links.open{display:flex!important;flex-direction:column;align-items:stretch;gap:0!important;padding:4px 0 18px!important}
+      .nav-links>a:not(.jelly){font-size:18px!important;font-weight:600;padding:15px 2px!important;border-bottom:1px solid var(--line);text-decoration:none!important}
+      .nav-links>a.jelly{margin-top:16px;min-height:54px;font-size:16px!important}
+    }
+    /* Survey: questions only (the real AI builds the actual site) */
+    .live-side{display:none!important}
+    .survey-layout{display:block!important;width:min(640px,calc(100% - 36px))!important;margin:28px auto 48px!important}
+    @media(max-width:760px){.nav-wrap>.wordmark{min-height:72px;display:flex;align-items:center}.nav-wrap>.menu-toggle{align-self:center}}
 </style>
 <meta property="og:image" content="https://vantryai.com/logo@2x.png"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="Vantry | $199.99 Websites for Local Businesses"><meta name="twitter:description" content="A website done for you. Answer a few questions, see three free previews, and choose your favorite."><meta name="twitter:image" content="https://vantryai.com/logo@2x.png">
 <script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "Organization", "@id": "https://vantryai.com/#organization", "name": "Vantry", "url": "https://vantryai.com/", "logo": "https://vantryai.com/logo@2x.png", "email": "booking@vantryai.com"}, {"@type": "Service", "name": "Done-for-you local business website", "provider": {"@id": "https://vantryai.com/#organization"}, "offers": {"@type": "Offer", "price": "199.99", "priceCurrency": "USD", "description": "Finished website with domain and first year hosting. $50/year from year two."}}, {"@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Why is it only $199.99?", "acceptedAnswer": {"@type": "Answer", "text": "AI writes the first draft of your words and layout in seconds, so we don\u2019t bill you for hours of design time. We keep it to one focused page, which is what most local service businesses need. A real person still checks every site before it goes live."}}, {"@type": "Question", "name": "Do I own my domain?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. Your custom domain belongs to you. We arrange the setup and provide the ownership and access details with your website."}}, {"@type": "Question", "name": "What happens after year one?", "acceptedAnswer": {"@type": "Answer", "text": "Your domain and hosting are included for the first year. After that, it\u2019s $50/year to keep both running. We email you before every renewal."}}, {"@type": "Question", "name": "Can I edit my site?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. Just email us what you want changed and we'll do it. Changes are free for the first 30 days, and Site Care covers small updates after that."}}, {"@type": "Question", "name": "What if I don't like it?", "acceptedAnswer": {"@type": "Answer", "text": "Then don\u2019t buy. Previews are free, and you can make two per email. If you buy and change your mind before your site goes live, you get a full refund. See the Refund Policy."}}]}]}</script>
@@ -244,7 +261,7 @@
 <a href="#main" class="skip">Skip to content</a>
 <header class="header"><div class="container nav-wrap">
   <a href="#main" class="wordmark" aria-label="Vantry home"><img class="brand-logo" src="/logo.png" srcset="/logo.png 1x, /logo@2x.png 2x" width="640" height="200" alt="Vantry"></a>
-  <button class="menu-toggle" type="button" aria-controls="navigation" aria-expanded="false">Menu <span aria-hidden="true">☰</span></button>
+  <button class="menu-toggle" type="button" aria-controls="navigation" aria-expanded="false" aria-label="Menu"><svg class="i-open" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg><svg class="i-close" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
   <nav class="nav-links" id="navigation" aria-label="Main navigation"><a href="#examples">Examples</a><a href="#pricing">Pricing</a><a href="#faq">FAQ</a><a class="nav-cta jelly jelly-sm" href="#preview">Get my free preview</a></nav>
 </div></header>
 <main id="main">
@@ -416,8 +433,7 @@ if('IntersectionObserver' in window&&!reduced.matches){const observer=new Inters
 updateLive();
 $('showcase-toggle').addEventListener('click',()=>{const paused=$('examples').classList.toggle('paused');$('showcase-toggle').setAttribute('aria-pressed',String(paused));$('showcase-toggle').textContent=paused?'Play showcase':'Pause showcase';});
 </script>
-<div class="sticky-cta is-hidden" id="sticky-cta"><a href="#preview" class="jelly"><span class="jelly-label">See my free website</span></a></div>
-<script>(function(){var bar=document.getElementById('sticky-cta'),hero=document.querySelector('.hero-action'),form=document.querySelector('footer');if(!bar||!('IntersectionObserver' in window))return;var heroVis=true,formVis=false;function u(){bar.classList.toggle('is-hidden',heroVis||formVis)}new IntersectionObserver(function(e){heroVis=e[0].isIntersecting;u()}).observe(hero);new IntersectionObserver(function(e){formVis=e[0].isIntersecting;u()},{rootMargin:'0px 0px -30% 0px'}).observe(form);})();</script>
+
 <script>(function(){var f=document.getElementById('start-box');if(!f)return;var i=document.getElementById('start-name');
 f.addEventListener('submit',function(e){e.preventDefault();var v=(i.value||'').trim().slice(0,80);
  try{if(v){answers.businessName=v;if(typeof save==='function')save();}}catch(err){}
