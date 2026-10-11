@@ -65,7 +65,7 @@ ${sign}`,
 
   ownerNewOrder: ({ order, site, env }) => ({
     to: env.OWNER_EMAIL,
-    subject: `New order: ${site.businessName} (${order.plan === "once" ? "$200" : "$49/mo"})`,
+    subject: `New order: ${site.businessName} (${order.plan === "once" ? "$199.99" : "$49/mo"})`,
     text: `New order ${order.id}
 Business: ${site.businessName}, ${site.city}
 Customer: ${order.contact?.name || ""} ${order.email}

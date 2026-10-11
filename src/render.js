@@ -46,6 +46,20 @@ export function pickPalette(name = "") {
   return PALETTE_KEYS[h % PALETTE_KEYS.length];
 }
 
+import { isOutdoorTrade } from "./prompt.js";
+
+// Soft shapes for businesses that aren't outdoor/yard work.
+function abstractArt(p, onDark) {
+  const [l1, l2, l3] = p.leaf;
+  const o = onDark ? 0.35 : 0.9;
+  return `<svg class="art" viewBox="0 0 520 420" aria-hidden="true" preserveAspectRatio="xMaxYMax meet">
+  <circle cx="380" cy="190" r="120" fill="${onDark ? "#FFFFFF14" : p.tint}"/>
+  <circle cx="455" cy="330" r="70" fill="${p.accent}" opacity="${onDark ? 0.55 : 0.85}"/>
+  <circle cx="300" cy="330" r="46" fill="${l2}" opacity="${o}"/>
+  <rect x="330" y="96" width="120" height="120" rx="34" fill="${l1}" opacity="${o}" transform="rotate(14 390 156)"/>
+</svg>`;
+}
+
 // Decorative landscape for the top of the page, tinted to the color scheme.
 function heroArt(p, onDark) {
   const [l1, l2, l3] = p.leaf;
@@ -84,7 +98,7 @@ export function renderSite({ copy, input, style = "modern", previewBar = null, p
 
   const bar = previewBar
     ? `<div class="pbar"><span class="ptext"><strong>This could be your website.</strong> <span class="pnote">Full refund before launch.</span></span>
-         <a class="pbtn" href="${esc(previewBar.buyUrl)}">Make it live – $200</a></div>`
+         <a class="pbtn" href="${esc(previewBar.buyUrl)}">Make it live – $199.99</a></div>`
     : "";
 
   return `<!doctype html>
@@ -146,7 +160,7 @@ footer{padding:28px 0;color:var(--muted);font-size:14px;border-top:1px solid var
 @media (max-width:640px){.pnote{display:block}.pbar{gap:8px}.hero{padding:8px 0 56px}section{padding:44px 0}.call .num{display:none}.call{padding:10px 16px}}
 </style></head><body>
 ${bar}
-<div class="hero">${heroArt(p, style === "modern")}<div class="wrap">
+<div class="hero">${isOutdoorTrade(input.trade) || !input.trade ? heroArt(p, style === "modern") : abstractArt(p, style === "modern")}<div class="wrap">
   <header><div class="logo">${esc(input.businessName)}</div>
   ${tel ? `<a class="btn ghost call" href="tel:${tel}">Call<span class="num"> ${phone}</span></a>` : ""}</header>
   <h1>${esc(copy.headline)}</h1>
@@ -164,7 +178,7 @@ ${bar}
 <section><div class="wrap"><h2>Common questions</h2>${faqs}</div></section>
 
 <section id="quote"><div class="wrap"><div class="quote">
-  <h2>Get your free quote</h2><p>Tell us about your yard and we'll get back to you.</p>
+  <h2>Get in touch</h2><p>Tell us what you need and we'll get back to you soon.</p>
   <form id="quote-form" data-endpoint="${lead ? esc(lead.endpoint) : ""}" data-site="${lead ? esc(lead.siteId) : ""}">
     <input name="name" placeholder="Your name" autocomplete="name" required maxlength="100">
     <input name="contact" placeholder="Phone or email" autocomplete="tel" required maxlength="120">
@@ -190,7 +204,7 @@ function schema(copy, input, domain) {
     telephone: input.phone || undefined,
     url: domain ? `https://www.${domain}/` : undefined,
     areaServed: (copy.serviceAreas && copy.serviceAreas.length ? copy.serviceAreas : [input.city]).filter(Boolean),
-    address: input.city ? { "@type": "PostalAddress", addressLocality: String(input.city).split(",")[0].trim(), addressRegion: "OH", addressCountry: "US" } : undefined,
+    address: input.city ? { "@type": "PostalAddress", addressLocality: String(input.city).split(",")[0].trim(), addressCountry: "US" } : undefined,
   };
   return JSON.stringify(data).replace(/</g, "\\u003c");
 }

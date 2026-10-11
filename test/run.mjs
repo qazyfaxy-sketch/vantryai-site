@@ -214,6 +214,14 @@ const h5 = await (await call(new URL(d5.previews.modern).pathname)).text();
 check(!h5.includes("<script>alert(1)</script>"), "user input is escaped");
 check((await call("/p/zzzzzzzzzz")).status === 404, "unknown preview returns 404");
 
+// ---------- 1b. any type of business ----------
+const salonPrompt = buildSystemPrompt("Hair salon");
+check(salonPrompt.includes("Hair salon") && !salonPrompt.includes("Snow removal"), "non-yard businesses don't get landscaping instructions");
+check(buildSystemPrompt("Lawn care, Snow removal").includes("Snow removal"), "yard businesses still get landscaping know-how");
+const pSalon = await (await postJson("/api/preview", { ...survey, businessName: "Shear Joy Salon", email: "joy@salon.test", trade: "Hair salon, Barbershop" }, { "CF-Connecting-IP": "5.5.5.5" })).json();
+const salonPage = await (await call(new URL(pSalon.previews.modern).pathname + "?style=modern")).text();
+check(salonPage.includes("Make it live – $199.99") && !salonPage.includes("your yard") && !salonPage.includes("stroke=\"#F3EBD3\""), "salon preview has no yard wording or landscape picture, and shows $199.99");
+
 // ---------- 2. domain picker ----------
 const go = await call(`/go/${d1.id}?style=editorial`);
 const goHtml = await go.text();
@@ -241,8 +249,8 @@ check(co.status === 200 && coj.url.startsWith("https://checkout.stripe.com/"), "
 const s1 = stripeSessions[0].params;
 const orderId1 = s1.get("metadata[orderId]");
 check(s1.get("mode") === "subscription", "pay-once uses a subscription so the $50/year renews automatically");
-check(s1.get("line_items[0][price_data][unit_amount]") === "15000" && !s1.has("line_items[0][price_data][recurring][interval]"), "$150 one-time build fee");
-check(s1.get("line_items[1][price_data][unit_amount]") === "5000" && s1.get("line_items[1][price_data][recurring][interval]") === "year", "$50/year hosting (so $200 today)");
+check(s1.get("line_items[0][price_data][unit_amount]") === "14999" && !s1.has("line_items[0][price_data][recurring][interval]"), "$149.99 one-time build fee");
+check(s1.get("line_items[1][price_data][unit_amount]") === "5000" && s1.get("line_items[1][price_data][recurring][interval]") === "year", "$50/year hosting (so $199.99 today)");
 check(s1.get("customer_email") === "owner@greenridge.test" && s1.get("billing_address_collection") === "required", "prefills email and collects address for the domain");
 check(order(orderId1).status === "checkout" && order(orderId1).domain.name === "greenridgelawn.com", "order saved before payment");
 

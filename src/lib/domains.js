@@ -2,7 +2,7 @@
 
 // Endings we sell. All are cheap, widely trusted and registrable through the API.
 export const SELL_TLDS = ["com", "net", "co", "org"];
-// We include the domain in the $200 price only if it costs no more than this per year.
+// We include the domain in the $199.99 price only if it costs no more than this per year.
 export const MAX_INCLUDED_DOMAIN_COST = 15;
 
 const LABEL = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;

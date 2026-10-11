@@ -31,7 +31,7 @@ export function adminPage(orders, token, flash = "") {
       return `<tr>
 <td><strong>${esc(o.businessName || "")}</strong><br><span class="muted small">${esc(o.email)}</span></td>
 <td>${esc(o.domain?.name || "")}<br><span class="muted small">${o.domain?.mode === "own" ? "Their domain" : "We register"}</span></td>
-<td>${o.plan === "once" ? "$200 once" : "$49/mo"}<br><span class="muted small">${esc(o.style)}</span></td>
+<td>${o.plan === "once" ? "$199.99 once" : "$49/mo"}<br><span class="muted small">${esc(o.style)}</span></td>
 <td><span class="${cls}"><strong>${esc(label)}</strong></span>${o.approved && o.status !== "live" ? '<br><span class="small muted">Approved, goes live when domain is ready</span>' : ""}${last ? `<br><span class="small muted">${esc(last.note)}</span>` : ""}</td>
 <td class="acts">${actions}</td></tr>`;
     })

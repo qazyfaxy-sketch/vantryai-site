@@ -7,7 +7,7 @@ const API = "https://api.stripe.com/v1";
 const STRIPE_VERSION = "2024-06-20";
 
 export const PLANS = {
-  once: { label: "Pay once", today: 20000, summary: "$200 today, then $50/year from year two" },
+  once: { label: "Pay once", today: 19999, summary: "$199.99 today, then $50/year from year two" },
   monthly: { label: "Pay monthly", today: 4900, summary: "$49/month for 12 months, then $50/year" },
 };
 
@@ -43,7 +43,7 @@ export async function createCheckout(env, { order, businessName, publicBase }) {
     order.plan === "once"
       ? [
           {
-            price_data: { currency: "usd", unit_amount: 15000, product_data: product("Website build", `${businessName} website, built and launched`) },
+            price_data: { currency: "usd", unit_amount: 14999, product_data: product("Website build", `${businessName} website, built and launched`) },
             quantity: 1,
           },
           {

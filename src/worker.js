@@ -2,7 +2,7 @@
 //
 // On api.vantryai.com:
 //   POST /api/preview          survey answers -> 1 AI call -> 3 style previews
-//   GET  /p/:id?style=         a preview with a "Make it live – $200" bar
+//   GET  /p/:id?style=         a preview with a "Make it live – $199.99" bar
 //   GET  /go/:id?style=        pick a style, web address and plan
 //   GET  /api/domains/check    live domain availability (Cloudflare Registrar)
 //   POST /api/checkout         creates a Stripe checkout page
@@ -207,7 +207,7 @@ export function clean(body) {
     phone: str(body.phone, 30),
     email: str(body.email, 120).toLowerCase(),
     notes: str(body.notes, 500),
-    trade: str(body.trade, 30) || "landscaping",
+    trade: str(body.trade, 160) || "local service",
   };
   const names = { businessName: "your business name", city: "your city", services: "your services", email: "your email" };
   for (const k of Object.keys(names)) {

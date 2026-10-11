@@ -39,7 +39,7 @@ export function goPage({ previewId, style, businessName, suggestions }) {
 
 <section class="card" aria-labelledby="s3"><h2 id="s3">How you'd like to pay</h2>
   <div class="plans">
-    <label class="plan"><input type="radio" name="plan" value="once" checked><span><em>Best value</em><strong>$200 once</strong><small>Then $50/year from year two</small></span></label>
+    <label class="plan"><input type="radio" name="plan" value="once" checked><span><em>Best value</em><strong>$199.99 once</strong><small>Then $50/year from year two</small></span></label>
     <label class="plan"><input type="radio" name="plan" value="monthly"><span><strong>$49/month</strong><small>$0 down, 12-month minimum, then $50/year</small></span></label>
   </div>
 </section>

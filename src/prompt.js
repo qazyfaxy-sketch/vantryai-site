@@ -25,15 +25,21 @@ export const TRADES = {
   },
 };
 
-export function buildSystemPrompt(tradeKey) {
-  const t = TRADES[tradeKey] || TRADES.landscaping;
-  return `You write website copy for small local ${t.label.toLowerCase()} businesses in Ohio.
-Your copy must get homeowners to request a free quote.
+// Outdoor/yard businesses get the landscaping know-how; everyone else gets general guidance.
+export const isOutdoorTrade = (trade = "") => /landscap|lawn|yard|mow|tree|snow|garden|hardscap|patio|irrigation|sprinkler|mulch|sod|fenc|outdoor|nursery/i.test(trade);
+
+export function buildSystemPrompt(trade = "") {
+  const kind = String(trade).trim() || "local service";
+  const t = isOutdoorTrade(kind) || !String(trade).trim()
+    ? TRADES.landscaping
+    : { label: kind, commonServices: ["(use only what the owner listed)"], customerQuestions: ["How do I get a quote or book?", "What areas do you serve?", "How soon can you help?"], tone: "friendly, trustworthy, local, professional" };
+  return `You write website copy for a small local business. Type of business: ${kind}.
+Your copy must get local customers to call, text or request a quote or booking.
 
 STYLE
 - Tone: ${t.tone}. Plain English a homeowner understands.
 - Short sentences. No buzzwords, no hype, no exclamation marks in headlines.
-- Lead with the customer's result (a yard they're proud of, less work for them).
+- Lead with the result the customer gets, in words that fit this type of business.
 
 HARD RULES (never break these)
 - Use ONLY facts the owner provided. Never invent licenses, insurance, awards,
@@ -63,6 +69,7 @@ Return ONLY a JSON object, no markdown, matching exactly:
 
 export function buildUserPrompt(input) {
   return `Business info from the owner:
+- Type of business: ${input.trade || "local service"}
 - Business name: ${input.businessName}
 - City / service area: ${input.city}${input.serviceAreas ? ", " + input.serviceAreas : ""}
 - Services: ${input.services}
