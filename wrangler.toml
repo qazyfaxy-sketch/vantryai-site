@@ -13,7 +13,7 @@ crons = ["*/10 * * * *"]
 # then paste the id it prints below.
 [[kv_namespaces]]
 binding = "PREVIEWS"
-id = "PASTE_KV_ID_HERE"
+id = "0371f07f757a41ce96f23e88a38f0219"
 
 # api.vantryai.com runs this Worker. Customer domains are added automatically.
 [[routes]]
@@ -34,8 +34,8 @@ WORKER_NAME = "vantry"
 SAAS_CNAME_TARGET = "sites.vantryai.com"
 EMAIL_FROM = "Vantry <hello@send.vantryai.com>"
 OWNER_EMAIL = "booking@vantryai.com"
-CF_ACCOUNT_ID = "PASTE_ACCOUNT_ID_HERE"
-CF_SAAS_ZONE_ID = "PASTE_VANTRYAI_ZONE_ID_HERE"
+CF_ACCOUNT_ID = "a5876b49fc37c01c6c9e3111796dd76a"
+CF_SAAS_ZONE_ID = "4f642479374d17cf7296555711f3f818"
 DAILY_PREVIEW_CAP = "300"
 
 # Secrets: never put these in this file. Add each one with
