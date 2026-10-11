@@ -253,6 +253,23 @@
     .live-side{display:none!important}
     .survey-layout{display:block!important;width:min(640px,calc(100% - 36px))!important;margin:28px auto 48px!important}
     @media(max-width:760px){.nav-wrap>.wordmark{min-height:72px;display:flex;align-items:center}.nav-wrap>.menu-toggle{align-self:center}}
+
+    /* ===== Volume v4: glossy jelly orbs that match the logo, deeper hero ===== */
+    .hero{background:radial-gradient(70% 50% at 50% 0%,#FFFFFF 0%,#F4F8FF 55%,transparent 100%),radial-gradient(90% 60% at 50% 100%,#BFD8FF 0%,#DCEAFF 40%,transparent 75%),linear-gradient(180deg,#F7FAFF 0%,#E6F0FF 100%)!important}
+    .orb{position:absolute;z-index:0;pointer-events:none;
+      border-radius:58% 42% 63% 37%/45% 58% 42% 55%;
+      background:radial-gradient(ellipse at 28% 22%,#FFFFFFE6 0 4%,#FFFFFF66 12%,transparent 30%),linear-gradient(140deg,#FFFFFF99 0%,#DCEAFF80 40%,#C4DAFB70 70%,#E8F1FF99 100%);
+      border:1.5px solid #FFFFFFCC;
+      box-shadow:inset 8px 10px 22px #FFFFFFCC,inset -12px -14px 28px #A9C6F04D,0 24px 50px -24px #6F9BDB40}
+    .orb::after{content:'';position:absolute;left:16%;top:10%;width:34%;height:16%;border-radius:50%;background:linear-gradient(#FFFFFFD9,#FFFFFF00);transform:rotate(-28deg)}
+    .orb.o1{width:330px;height:380px;right:-110px;top:50px;rotate:18deg}
+    .orb.o2{width:220px;height:260px;left:-90px;top:280px;rotate:-26deg;border-radius:42% 58% 38% 62%/60% 40% 60% 40%}
+    .orb.o3{width:90px;height:76px;left:15%;top:90px;rotate:12deg;border-radius:63% 37% 54% 46%/55% 48% 52% 45%;opacity:.85}
+    @media(prefers-reduced-motion:no-preference){.orb.o1{animation:orb-float 10s ease-in-out infinite alternate}.orb.o2{animation:orb-float 12s ease-in-out -4s infinite alternate}.orb.o3{animation:orb-float 8s ease-in-out -2s infinite alternate}}
+    @keyframes orb-float{to{translate:0 -16px;border-radius:45% 55% 40% 60%/58% 42% 58% 42%}}
+    .start-box{box-shadow:0 1px 0 #FFFFFF inset,0 30px 60px -22px #1F5FD080,0 12px 24px -12px #0B1B3F2E,0 0 0 6px #FFFFFF80!important;border-color:#CFDDF3!important}
+    .new-showcase .show-card{box-shadow:0 30px 50px -18px #1E3A7A55,0 8px 16px -8px #1E3A7A33!important}
+    @media(max-width:760px){.orb.o1{width:170px;height:200px;right:-90px;top:-30px}.orb.o2{width:130px;height:150px;left:-80px;top:auto;bottom:480px}.orb.o3{width:46px;height:40px;left:auto;right:10%;top:auto;bottom:440px}}
 </style>
 <meta property="og:image" content="https://vantryai.com/logo@2x.png"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="Vantry | $199.99 Websites for Local Businesses"><meta name="twitter:description" content="A website done for you. Answer a few questions, see three free previews, and choose your favorite."><meta name="twitter:image" content="https://vantryai.com/logo@2x.png">
 <script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "Organization", "@id": "https://vantryai.com/#organization", "name": "Vantry", "url": "https://vantryai.com/", "logo": "https://vantryai.com/logo@2x.png", "email": "booking@vantryai.com"}, {"@type": "Service", "name": "Done-for-you local business website", "provider": {"@id": "https://vantryai.com/#organization"}, "offers": {"@type": "Offer", "price": "199.99", "priceCurrency": "USD", "description": "Finished website with domain and first year hosting. $50/year from year two."}}, {"@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Why is it only $199.99?", "acceptedAnswer": {"@type": "Answer", "text": "AI writes the first draft of your words and layout in seconds, so we don\u2019t bill you for hours of design time. We keep it to one focused page, which is what most local service businesses need. A real person still checks every site before it goes live."}}, {"@type": "Question", "name": "Do I own my domain?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. Your custom domain belongs to you. We arrange the setup and provide the ownership and access details with your website."}}, {"@type": "Question", "name": "What happens after year one?", "acceptedAnswer": {"@type": "Answer", "text": "Your domain and hosting are included for the first year. After that, it\u2019s $50/year to keep both running. We email you before every renewal."}}, {"@type": "Question", "name": "Can I edit my site?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. Just email us what you want changed and we'll do it. Changes are free for the first 30 days, and Site Care covers small updates after that."}}, {"@type": "Question", "name": "What if I don't like it?", "acceptedAnswer": {"@type": "Answer", "text": "Then don\u2019t buy. Previews are free, and you can make two per email. If you buy and change your mind before your site goes live, you get a full refund. See the Refund Policy."}}]}]}</script>
@@ -265,7 +282,7 @@
   <nav class="nav-links" id="navigation" aria-label="Main navigation"><a href="#examples">Examples</a><a href="#pricing">Pricing</a><a href="#faq">FAQ</a><a class="nav-cta jelly jelly-sm" href="#preview">Get my free preview</a></nav>
 </div></header>
 <main id="main">
-  <section class="hero" aria-labelledby="hero-title"><div class="bubble" aria-hidden="true"></div><div class="bubble right" aria-hidden="true"></div><div class="container">
+  <section class="hero" aria-labelledby="hero-title"><div class="orb o1" aria-hidden="true"></div><div class="orb o2" aria-hidden="true"></div><div class="orb o3" aria-hidden="true"></div><div class="container">
     <p class="eyebrow">Websites for local businesses</p>
     <h1 id="hero-title">Your business website, <span>done for you.</span></h1>
     <p class="hero-sub">Type your business name. Get 3 website designs in about 20 seconds. Like one? Go live for <strong>$199.99</strong>, one time.</p>
