@@ -1,0 +1,49 @@
+# Cloudflare Worker settings for the Vantry back end.
+# Deploy with:  npx wrangler deploy
+name = "vantry"
+main = "src/worker.js"
+compatibility_date = "2026-09-01"
+
+# Checks every 10 minutes on domains still registering or waiting for DNS.
+[triggers]
+crons = ["*/10 * * * *"]
+
+# The one storage space for previews, orders, sites and leads.
+# Create it with:  npx wrangler kv namespace create PREVIEWS
+# then paste the id it prints below.
+[[kv_namespaces]]
+binding = "PREVIEWS"
+id = "PASTE_KV_ID_HERE"
+
+# api.vantryai.com runs this Worker. Customer domains are added automatically.
+[[routes]]
+pattern = "api.vantryai.com"
+custom_domain = true
+
+# Customers who bring their own domain point "www" at sites.vantryai.com (Cloudflare for SaaS).
+[[routes]]
+pattern = "*/*"
+zone_name = "vantryai.com"
+
+[vars]
+API_HOST = "api.vantryai.com"
+PUBLIC_API = "https://api.vantryai.com"
+SITE_ORIGIN = "https://vantryai.com"
+ALLOWED_ORIGIN = "https://vantryai.com"
+WORKER_NAME = "vantry"
+SAAS_CNAME_TARGET = "sites.vantryai.com"
+EMAIL_FROM = "Vantry <hello@send.vantryai.com>"
+OWNER_EMAIL = "booking@vantryai.com"
+CF_ACCOUNT_ID = "PASTE_ACCOUNT_ID_HERE"
+CF_SAAS_ZONE_ID = "PASTE_VANTRYAI_ZONE_ID_HERE"
+DAILY_PREVIEW_CAP = "300"
+
+# Secrets: never put these in this file. Add each one with
+#   npx wrangler secret put NAME
+# ANTHROPIC_API_KEY      AI that writes the site words
+# STRIPE_SECRET_KEY      Stripe > Developers > API keys (starts with sk_live_ or sk_test_)
+# STRIPE_WEBHOOK_SECRET  Stripe > Developers > Webhooks (starts with whsec_)
+# CF_API_TOKEN           Cloudflare token with Registrar, Zone, DNS, Workers Routes, SSL for SaaS permissions
+# RESEND_API_KEY         resend.com > API keys
+# ADMIN_TOKEN            a long random password for your /admin dashboard
+# TURNSTILE_SECRET       optional: Cloudflare Turnstile bot check for the preview form
