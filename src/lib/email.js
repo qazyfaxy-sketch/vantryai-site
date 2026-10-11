@@ -28,10 +28,10 @@ export async function sendEmail(env, { to, subject, text, replyTo }) {
 function layout(text) {
   const body = esc(text)
     .split(/\n{2,}/)
-    .map((p) => `<p style="margin:0 0 14px">${p.replace(/\n/g, "<br>").replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" style="color:#4B3FD6">$1</a>')}</p>`)
+    .map((p) => `<p style="margin:0 0 14px">${p.replace(/\n/g, "<br>").replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" style="color:#3B88DA">$1</a>')}</p>`)
     .join("");
   return `<div style="font:15px/1.6 -apple-system,Segoe UI,Arial,sans-serif;color:#1B1D33;max-width:560px;margin:0 auto;padding:24px">
-<p style="font-weight:700;font-size:20px;letter-spacing:-.5px;margin:0 0 20px">vantry<span style="color:#4B3FD6">.</span></p>${body}</div>`;
+<p style="font-weight:700;font-size:20px;letter-spacing:-.5px;margin:0 0 20px">vantry<span style="color:#3B88DA">.</span></p>${body}</div>`;
 }
 
 const sign = "Thanks,\nVantry\nbooking@vantryai.com";

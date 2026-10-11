@@ -58,18 +58,18 @@ export function goPage({ previewId, style, businessName, suggestions }) {
 .opt input:focus-visible+span,.plan input:focus-visible+span,.dom input:focus-visible+span{outline:3px solid var(--indigo);outline-offset:2px}
 .tabs{display:flex;gap:6px;background:var(--pale);padding:5px;border-radius:999px;margin:14px 0 18px;width:max-content;max-width:100%}
 .tab{border:0;background:none;border-radius:999px;padding:9px 16px;font:600 14px var(--sans);color:var(--muted);cursor:pointer}
-.tab[aria-selected=true]{background:#fff;color:var(--ink);box-shadow:0 2px 8px #39235B14}
-.results{display:grid;gap:8px;margin-bottom:18px}
+.tab[aria-selected=true]{background:#fff;color:var(--ink);box-shadow:0 2px 8px #222C5C14}
+.results{display:grid;gap:8px;margin-bottom:12px}#more-domains{margin-bottom:18px}
 .dom{position:relative}.dom input{position:absolute;opacity:0}
 .dom span{display:flex;justify-content:space-between;gap:12px;align-items:center;border:1px solid var(--line);border-radius:14px;padding:13px 16px;cursor:pointer;background:#fff;overflow-wrap:anywhere}
 .dom strong{font-weight:600}.dom small{color:var(--ok);font-weight:600;white-space:nowrap}
-.dom.off span{cursor:default;color:var(--muted);background:#FAFAFC}.dom.off small{color:var(--muted);font-weight:500}
+.dom.off span{cursor:default;color:var(--muted);background:#FAFBFC}.dom.off small{color:var(--muted);font-weight:500}
 .row{display:flex;gap:8px;margin-top:6px}.row input{flex:1}
 #pane-own input{margin:6px 0 8px}
 .plans{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
 .plan span{display:flex;flex-direction:column;gap:2px;border:1px solid var(--line);border-radius:16px;padding:16px;cursor:pointer;height:100%;background:#fff}
 .plan em{font-style:normal;font-size:12px;font-weight:600;color:var(--indigo)}
-.plan strong{font-family:var(--serif);font-weight:500;font-size:24px}.plan small{color:var(--muted)}
+.plan strong{font-family:var(--serif);font-weight:700;font-size:24px;letter-spacing:-.02em}.plan small{color:var(--muted)}
 #err{margin-bottom:14px}.center{text-align:center}
 @media(max-width:560px){.plans{grid-template-columns:1fr}.tabs{width:100%}.tab{flex:1;padding:9px 8px}.dom span{flex-direction:column;align-items:flex-start;gap:2px}.dom strong{overflow-wrap:anywhere}}
 </style>`;
@@ -77,12 +77,14 @@ export function goPage({ previewId, style, businessName, suggestions }) {
   const script = `
 var PREVIEW=${JSON.stringify(previewId)},SUGGEST=${JSON.stringify(suggestions)};
 var f=document.getElementById('go'),res=document.getElementById('results'),err=document.getElementById('err'),pay=document.getElementById('pay');
-var mode='new',seen={};
+var mode='new',seen={},showAll=false;
 function showErr(m){err.textContent=m;err.hidden=!m;}
 function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
 function render(list,prepend){
   var html=list.map(function(d){
-    if(seen[d.name])return '';seen[d.name]=1;
+    if(seen[d.name])return '';
+    if(!prepend&&!(d.available&&d.included))return '';
+    seen[d.name]=1;
     if(d.available&&d.included)return '<label class="dom"><input type="radio" name="domain" value="'+esc(d.name)+'"><span><strong>'+esc(d.name)+'</strong><small>Available, included</small></span></label>';
     var why=d.available?'Premium name, not included':'Taken';
     return '<div class="dom off"><span><strong>'+esc(d.name)+'</strong><small>'+why+'</small></span></div>';
@@ -93,6 +95,10 @@ function render(list,prepend){
   var pick=(prepend&&firstNew&&res.querySelector('input[name=domain][value="'+firstNew.name+'"]'))||res.querySelector('input[name=domain]:checked')||res.querySelector('input[name=domain]');
   if(pick)pick.checked=true;
   if(!res.querySelector('input[name=domain]')&&!res.querySelector('.dom'))res.innerHTML='<p class="muted small">None of our ideas are free. Try a search below.</p>';
+  var items=[].slice.call(res.querySelectorAll('.dom')),more=document.getElementById('more-domains');
+  items.forEach(function(el,i){el.hidden=!showAll&&i>=4;});
+  if(items.length>4&&!showAll){if(!more){more=document.createElement('button');more.type='button';more.id='more-domains';more.className='ghost';more.textContent='Show more ideas';more.onclick=function(){showAll=true;items.forEach(function(el){el.hidden=false;});more.remove();};res.after(more);}}
+  else if(more)more.remove();
 }
 function check(params,prepend){
   return fetch('/api/domains/check?id='+encodeURIComponent(PREVIEW)+'&'+params).then(function(r){return r.json().then(function(j){if(!r.ok)throw new Error(j.error);return j;});})
