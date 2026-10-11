@@ -58,6 +58,10 @@ You'll need accounts at **Cloudflare** (vantryai.com must use Cloudflare for its
 8. **Deploy.** Run `npx wrangler deploy`.
 9. **Test with Stripe test keys first.** Use the card `4242 4242 4242 4242` with any future date. A domain registration is a real purchase, so test with your own domain mode ("I already own one") until you're ready.
 
+## Deploys
+
+Cloudflare builds and deploys automatically on every push to the `engine` branch.
+
 ## Test
 
 `node test/run.mjs` runs 78 end-to-end checks with fake AI, Stripe, Cloudflare and email.
