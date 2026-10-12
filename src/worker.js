@@ -16,7 +16,7 @@
 // Every 10 minutes (cron): checks on domains still registering or waiting for DNS.
 //
 // Settings are listed in wrangler.toml and README.md.
-import { buildSystemPrompt, buildUserPrompt } from "./prompt.js";
+import { buildSystemPrompt, buildUserPrompt, qualityIssues } from "./prompt.js";
 import { renderSite } from "./render.js";
 import { json, html, httpError, randomId, readJson, clientIp, rateLimit, safeEqual } from "./lib/util.js";
 import { getPreview, putPreview, getOrder, saveOrder, getSite, getHostSiteId, normalizeHost, addLead, listOrders, listPending } from "./lib/store.js";
@@ -143,17 +143,32 @@ async function verifyTurnstile(env, token, ip) {
   if (!d.success) throw httpError(400, "The quick check didn't pass. Please refresh and try again.");
 }
 
+// Writes the site words: one AI call, then a quality check. If the draft breaks a rule
+// (generic phrases, made-up numbers, headline too long...), the AI gets one chance to fix it.
 async function writeCopy(input, env) {
+  const system = buildSystemPrompt(input.trade);
+  const userMsg = buildUserPrompt(input);
+  const first = await askAi(env, system, [{ role: "user", content: userMsg }]);
+  const issues = qualityIssues(first.copy, input);
+  if (!issues.length) return first.copy;
+  try {
+    const fixed = await askAi(env, system, [
+      { role: "user", content: userMsg },
+      { role: "assistant", content: first.text },
+      { role: "user", content: `Our quality check found these problems:\n- ${issues.join("\n- ")}\n\nFix them and return the full corrected JSON only. Keep everything else the same.` },
+    ]);
+    return qualityIssues(fixed.copy, input).length <= issues.length ? fixed.copy : first.copy;
+  } catch {
+    return first.copy;
+  }
+}
+
+async function askAi(env, system, messages) {
   const request = () =>
     fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: { "x-api-key": env.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-      body: JSON.stringify({
-        model: env.AI_MODEL || MODEL,
-        max_tokens: 1500,
-        system: buildSystemPrompt(input.trade),
-        messages: [{ role: "user", content: buildUserPrompt(input) }],
-      }),
+      body: JSON.stringify({ model: env.AI_MODEL || MODEL, max_tokens: 1800, temperature: 0.7, system, messages }),
       signal: AbortSignal.timeout(45000),
     });
 
@@ -175,7 +190,7 @@ async function writeCopy(input, env) {
     const data = await res.json();
     const text = (data.content || []).map((c) => c.text || "").join("");
     try {
-      return parseCopy(text);
+      return { text, copy: parseCopy(text) };
     } catch (e) {
       if (attempt === 2) throw e;
     }

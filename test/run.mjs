@@ -463,5 +463,33 @@ const dash = await (await as2("/account")).text();
 check(dash.includes("Last 30 days") && dash.includes(">42<") && dash.includes(">3<") && dash.includes("Quote requests"), "account shows visits, call taps and quote requests");
 check(calls.includes("sql:site"), "stats are read only for that one site");
 
+// ---------- 13. AI quality check ----------
+import("../src/prompt.js").then(() => {});
+const { qualityIssues, playbookFor } = await import("../src/prompt.js");
+const inp = { businessName: "Fade Factory", city: "Columbus", services: "fades, beard trims", notes: "", phone: "" };
+check(qualityIssues(fakeCopy, { ...inp, businessName: "Green Ridge Lawn Care", services: "mowing, cleanup, mulch" }).length === 0, "good copy passes the quality check");
+const badCopy = { headline: "Elevate Your Look With Columbus's #1 Barbers!", subheadline: "x", ctaText: "Book", about: "With 15 years of experience, we are licensed and insured.", services: [{ name: "Fades", description: "Top-notch fades." }], faqs: [] };
+const bi = qualityIssues(badCopy, inp).join(" | ");
+check(/exclamation/.test(bi) && /elevate/.test(bi) && /#1/.test(bi) && /15/.test(bi) && /licensed/i.test(bi), "quality check catches hype words, made-up numbers and fake claims");
+check(playbookFor("Barbershop").label.startsWith("Beauty") && playbookFor("Plumbing").label.startsWith("Home") && playbookFor("Food truck").label.startsWith("Food") && playbookFor("Underwater basket weaving").label === "Local business", "each business type gets its own playbook");
+// a bad first draft gets sent back once for a fix
+let aiCalls = 0;
+const realFetch2 = globalThis.fetch;
+globalThis.fetch = async (input, opts) => {
+  const u = new URL(typeof input === "string" ? input : input.url);
+  if (u.host === "api.anthropic.com") {
+    aiCalls++;
+    const b = JSON.parse(opts.body);
+    const draft = b.messages.length === 1 ? { ...fakeCopy, headline: "The Best Lawn Care, Guaranteed!" } : fakeCopy;
+    if (b.messages.length === 3 && !b.messages[2].content.includes("exclamation")) throw new Error("fix request missing the problems");
+    return new Response(JSON.stringify({ content: [{ type: "text", text: JSON.stringify(draft) }] }), { status: 200 });
+  }
+  return realFetch2(input, opts);
+};
+const fixRes = await (await postJson("/api/preview", { ...survey, businessName: "Fixit Lawns", email: "fix@x.test" }, { "CF-Connecting-IP": "5.5.5.5" })).json();
+globalThis.fetch = realFetch2;
+const fixedPrev = JSON.parse(store.get(`preview:${fixRes.id}`));
+check(aiCalls === 2 && fixedPrev.copy.headline === fakeCopy.headline, "a draft that breaks the rules is fixed by the AI before anyone sees it");
+
 console.log(`\n${count} checks. ${ok ? "ALL TESTS PASSED" : "SOME TESTS FAILED"}`);
 process.exit(ok ? 0 : 1);
