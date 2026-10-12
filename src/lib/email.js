@@ -129,6 +129,34 @@ Didn't ask for this? You can ignore this email. Your password stays the same.
 ${sign}`,
   }),
 
+  monthlyReport: ({ site, stats }) => {
+    const t = stats.totals;
+    const n = (x) => x.toLocaleString("en-US");
+    const lines = [
+      stats.visitsReady && `- ${n(t.view)} visits`,
+      stats.visitsReady && `- ${n(t.call)} taps on Call`,
+      stats.visitsReady && t.text && `- ${n(t.text)} taps on Text`,
+      `- ${n(t.quote)} quote request${t.quote === 1 ? "" : "s"}`,
+    ].filter(Boolean).join("\n");
+    const tip = t.quote || t.call ? "Reply fast to new requests. People often hire the first business that gets back to them." : "Tip: add your website to your Google Business Profile, Facebook page and business cards. More places means more visits.";
+    return {
+      to: site.leadEmail || site.ownerEmail,
+      subject: `Your website this month: ${stats.visitsReady ? `${n(t.view)} visits, ` : ""}${n(t.quote)} quote request${t.quote === 1 ? "" : "s"}`,
+      text: `Hi,
+
+Here's how ${site.businessName}'s website did in the last 30 days:
+
+${lines}
+
+${tip}
+
+Want to change anything? Log in and edit your site any time:
+${ACCOUNT}
+
+${sign}`,
+    };
+  },
+
   ownerAlert: ({ env, subject, text }) => ({ to: env.OWNER_EMAIL, subject: `Action needed: ${subject}`, text }),
 };
 

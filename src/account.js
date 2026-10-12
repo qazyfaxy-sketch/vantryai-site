@@ -16,6 +16,7 @@ import { getSite, putSite, getOrder, saveOrder, getJson, putJson, listOrders } f
 import { currentAccount, getAccount, putAccount, checkPassword, hashPassword, startSession, endSession, makeResetToken, readResetToken, useResetToken, normEmail, MIN_PASSWORD } from "./lib/auth.js";
 import { PALETTES, renderSite, sectionList } from "./render.js";
 import { getStats } from "./lib/stats.js";
+import { stockReady } from "./lib/images.js";
 import { send } from "./lib/email.js";
 import { loginPage, forgotPage, resetPage, accountPage, editorPage } from "./pages/account.js";
 
@@ -30,7 +31,8 @@ const MODEL = "claude-haiku-5-5";
 export const isAccountPath = (p) => p === "/login" || p === "/logout" || p === "/forgot" || p === "/reset" || p === "/account" || p.startsWith("/account/");
 
 // What the site renderer needs to show photos, the logo and the owner's section order.
-export const siteMedia = (site, env) => ({
+export const siteMedia = async (site, env) => ({
+  stock: await stockReady(env),
   siteId: site.id,
   photos: site.photos || [],
   logo: site.logo || null,
@@ -66,7 +68,7 @@ export async function accountRoute(req, url, env) {
   if ((m = p.match(/^\/account\/site\/(o[a-z0-9]{12})(\/view|\/undo|\/preview|\/photo|\/ai)?$/))) {
     const site = await ownedSite(env, acct, m[1]);
     const action = m[2] || "";
-    if (action === "/view" && req.method === "GET") return page(renderSite({ ...siteView(site), media: siteMedia(site, env) }));
+    if (action === "/view" && req.method === "GET") return page(renderSite({ ...siteView(site), media: await siteMedia(site, env) }));
     if (req.method === "POST") {
       if (action === "/undo") return undo(env, site);
       if (action === "/preview") return previewDraft(req, env, site);
@@ -167,7 +169,7 @@ async function showAccount(env, acct) {
 
 async function showEditor(env, site, ok = "", error = "") {
   const canUndo = !!(await env.PREVIEWS.get(`rev:${site.id}`));
-  return page(editorPage({ site, ok, error, canUndo, media: siteMedia(site, env) }), error ? 400 : 200);
+  return page(editorPage({ site, ok, error, canUndo, media: await siteMedia(site, env) }), error ? 400 : 200);
 }
 
 const siteView = (site) => ({ copy: site.copy, input: site.input, style: site.style, palette: site.palette, domain: site.domain });
@@ -236,7 +238,7 @@ async function draftFromForm(f, site, env) {
 
 async function previewDraft(req, env, site) {
   const { draft } = await draftFromForm(await req.formData(), site, env);
-  return page(renderSite({ ...siteView(draft), media: siteMedia(draft, env) }));
+  return page(renderSite({ ...siteView(draft), media: await siteMedia(draft, env) }));
 }
 
 async function saveEdits(req, env, site) {

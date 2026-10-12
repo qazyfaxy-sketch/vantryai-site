@@ -42,6 +42,8 @@ OWNER_EMAIL = "booking@vantryai.com"
 CF_ACCOUNT_ID = "a5876b49fc37c01c6c9e3111796dd76a"
 CF_SAAS_ZONE_ID = "4f642479374d17cf7296555711f3f818"
 DAILY_PREVIEW_CAP = "300"
+IMAGE_DAILY_CAP = "60"     # most AI photos per day (cost guard)
+IMAGE_QUALITY = "medium"   # low, medium or high
 
 # Secrets: never put these in this file. Add each one with
 #   npx wrangler secret put NAME
@@ -52,4 +54,5 @@ DAILY_PREVIEW_CAP = "300"
 # RESEND_API_KEY         resend.com > API keys
 # ADMIN_TOKEN            a long random password for your /admin dashboard
 # CF_ANALYTICS_TOKEN     optional: token with "Account Analytics: Read" for site stats (else CF_API_TOKEN is used)
+# OPENAI_API_KEY         optional: platform.openai.com key. Turns on AI photos (category photos + one per paying customer)
 # TURNSTILE_SECRET       optional: Cloudflare Turnstile bot check for the preview form

@@ -46,8 +46,7 @@ export const pickPalette = (_name, trade = "") => categoryOf(trade);
 
 // Photos for each category, used until the owner uploads their own.
 // Add a category here once vantryai.com/stock/<category>-1.jpg (top) and -2.jpg (about) exist.
-export const STOCK_READY = new Set([]);
-const stock = (cat, n) => (STOCK_READY.has(cat) ? `https://vantryai.com/stock/${cat}-${n}.jpg` : null);
+// media.stock is the set of categories whose AI photos are ready (served at /stock/<category>-<n>.jpg).
 
 const FONTS = {
   serif: { head: `'Fraunces', Georgia, serif`, weight: 400, track: "-0.025em", caps: false },
@@ -94,9 +93,10 @@ export function renderSite({ copy, input, style = "modern", previewBar = null, p
   const img = (id) => `${imgBase}/img/${esc(m.siteId)}/${esc(id)}`;
   const photos = (m.photos || []).filter(Boolean);
   const ownHero = m.heroPhoto && photos.includes(m.heroPhoto) ? m.heroPhoto : null;
-  const heroSrc = ownHero ? img(ownHero) : stock(cat, 1);
+  const stock = (n) => (m.stock && m.stock.has && m.stock.has(cat) ? `${imgBase}/stock/${cat}-${n}.jpg` : null);
+  const heroSrc = ownHero ? img(ownHero) : stock(1);
   const aboutOwn = photos.find((p) => p !== ownHero);
-  const aboutSrc = aboutOwn ? img(aboutOwn) : stock(cat, 2);
+  const aboutSrc = aboutOwn ? img(aboutOwn) : stock(2);
   const hours = (copy.hours || []).filter(Boolean);
   const phone = esc(input.phone || "");
   const tel = phone.replace(/[^\d+]/g, "");

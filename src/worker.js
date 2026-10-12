@@ -33,6 +33,8 @@ import { accountRoute, isAccountPath } from "./account.js";
 import { getAccount, checkPassword, hashPassword, MIN_PASSWORD } from "./lib/auth.js";
 import { track, isBot } from "./lib/stats.js";
 import { siteMedia, serveImage } from "./account.js";
+import { stockReady, serveStock, runImageJobs } from "./lib/images.js";
+import { runMonthlyReports } from "./lib/reports.js";
 
 const MAX_PREVIEWS_PER_EMAIL = 2;
 const MAX_PREVIEWS_PER_IP_HOUR = 6;
@@ -64,6 +66,8 @@ export default {
 
   async scheduled(event, env, ctx) {
     ctx.waitUntil(runPending(env, listPending));
+    ctx.waitUntil(runImageJobs(env).catch((e) => console.log("Image jobs failed", e.message)));
+    ctx.waitUntil(runMonthlyReports(env).catch((e) => console.log("Monthly reports failed", e.message)));
   },
 };
 
@@ -94,6 +98,7 @@ async function route(req, url, env, ctx) {
   if (req.method === "GET" && (m = p.match(/^\/go\/([a-z0-9]{10})$/))) return await showGo(m[1], url, env);
   if (req.method === "GET" && (m = p.match(/^\/thanks\/(o[a-z0-9]{12})$/))) return await showThanks(m[1], env);
   if (req.method === "GET" && (m = p.match(/^\/img\/(o[a-z0-9]{12})\/([a-z0-9]{16})$/))) return await serveImage(env, m[1], m[2]);
+  if (req.method === "GET" && (m = p.match(/^\/stock\/([a-zA-Z]+)-([12])\.jpg$/))) return (await serveStock(env, m[1], m[2])) || new Response("Not found", { status: 404 });
   if (p === "/admin" || p.startsWith("/admin/")) return await admin(req, url, env);
   if (isAccountPath(p)) return await accountRoute(req, url, env);
   if (p === "/" || p === "") return Response.redirect(env.SITE_ORIGIN || "https://vantryai.com", 302);
@@ -247,7 +252,7 @@ async function showPreview(id, url, env) {
   if (!preview) return html(placeholder({ title: "This preview has expired", message: "Previews last 30 days. Make a new one free at vantryai.com." }), 404);
   const style = pickStyle(url.searchParams.get("style"));
   const buyUrl = `/go/${id}?style=${style}`;
-  return html(renderSite({ copy: preview.copy, input: preview.input, style, previewBar: { buyUrl } }), 200, { "X-Robots-Tag": "noindex" });
+  return html(renderSite({ copy: preview.copy, input: preview.input, style, previewBar: { buyUrl }, media: { stock: await stockReady(env), imgBase: env.PUBLIC_API } }), 200, { "X-Robots-Tag": "noindex" });
 }
 
 // ---------------- Picking a domain ----------------
@@ -426,7 +431,7 @@ async function serveHostedSite(host, url, env, req) {
     input: site.input,
     style: site.style,
     palette: site.palette,
-    media: siteMedia(site, env),
+    media: await siteMedia(site, env),
     domain: bare,
     lead: { endpoint: `${env.PUBLIC_API || "https://api.vantryai.com"}/api/lead`, siteId: site.id },
   });
@@ -450,7 +455,7 @@ async function admin(req, url, env) {
   if (req.method === "GET" && (m = url.pathname.match(/^\/admin\/site\/(o[a-z0-9]{12})$/))) {
     const site = await getSite(env, m[1]);
     if (!site) throw httpError(404, "No site for that order yet.");
-    return html(renderSite({ copy: site.copy, input: site.input, style: site.style, palette: site.palette, media: siteMedia(site, env), domain: site.domain }), 200, noStore);
+    return html(renderSite({ copy: site.copy, input: site.input, style: site.style, palette: site.palette, media: await siteMedia(site, env), domain: site.domain }), 200, noStore);
   }
 
   let flash = "";

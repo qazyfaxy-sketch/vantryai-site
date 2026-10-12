@@ -9,6 +9,7 @@ import { registerDomain, registrationStatus, registrantFrom, connectBoughtDomain
 import { scheduleMonthlyPlan } from "./lib/stripe.js";
 import { send } from "./lib/email.js";
 import { attachSite } from "./lib/auth.js";
+import { queueSitePhoto, imagesOn } from "./lib/images.js";
 
 const DNS_GIVE_UP_DAYS = 14;
 
@@ -51,6 +52,7 @@ export async function onCheckoutCompleted(env, session) {
   await setHost(env, order.domain.name, site.id); // shows "coming soon" until you approve
   await attachSite(env, order.email, site.id, order.pw); // their login for editing the site
   delete order.pw;
+  if (imagesOn(env)) await queueSitePhoto(env, site.id); // a unique AI photo for their site
   await saveOrder(env, order, "Payment received");
 
   if (order.plan === "monthly" && session.subscription) {

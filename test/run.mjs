@@ -33,6 +33,7 @@ const fakeCopy = {
 };
 
 const calls = [];
+const imageCalls = [];
 const emails = [];
 let stripeSessions = [];
 let regState = "in_progress"; // what the registrar reports for new registrations
@@ -53,6 +54,11 @@ globalThis.fetch = async (input, opts = {}) => {
     const b = JSON.parse(body);
     if (!b.system.includes("Never invent licenses")) throw new Error("system prompt missing rules");
     return ok200({ content: [{ type: "text", text: JSON.stringify(fakeCopy) }] });
+  }
+  if (url.host === "api.openai.com") {
+    imageCalls.push(JSON.parse(body));
+    const jpg = btoa(String.fromCharCode(0xff, 0xd8, 0xff, 0xe0, 1, 2, 3));
+    return ok200({ data: [{ b64_json: jpg }] });
   }
   if (url.host === "api.resend.com") {
     emails.push(JSON.parse(body));
@@ -490,6 +496,39 @@ const fixRes = await (await postJson("/api/preview", { ...survey, businessName: 
 globalThis.fetch = realFetch2;
 const fixedPrev = JSON.parse(store.get(`preview:${fixRes.id}`));
 check(aiCalls === 2 && fixedPrev.copy.headline === fakeCopy.headline, "a draft that breaks the rules is fixed by the AI before anyone sees it");
+
+// ---------- 14. AI photos + monthly email ----------
+const { queueSitePhoto, runImageJobs } = await import("../src/lib/images.js");
+const { runMonthlyReports } = await import("../src/lib/reports.js");
+check((await runImageJobs(env)) === 0 && imageCalls.length === 0, "AI photos stay off until the OpenAI key is added");
+env.OPENAI_API_KEY = "sk-test";
+env.IMAGE_DAILY_CAP = "100";
+const site1Before = JSON.parse(store.get(`site:${orderId1}`));
+await queueSitePhoto(env, orderId1);
+const madeFirst = await runImageJobs(env);
+const site1After = JSON.parse(store.get(`site:${orderId1}`));
+check(madeFirst === 3 && site1After.aiPhoto && site1After.uploads.includes(site1After.aiPhoto), "paying customers get their own AI photo");
+check(site1After.heroPhoto === site1Before.heroPhoto, "an AI photo never replaces a photo the owner picked");
+check(imageCalls[0].prompt.includes("No text") && imageCalls[0].size === "1536x1024", "photo prompts ask for clean, text-free banner photos");
+for (let i = 0; i < 20; i++) await runImageJobs(env);
+const idx = JSON.parse(store.get("stock:index") || "[]");
+check(idx.length === 26 && store.has("stock:beauty:1") && store.has("stock:general:2"), "category photos get made for every category, a few at a time");
+const st = await call("/stock/beauty-1.jpg");
+check(st.status === 200 && st.headers.get("Content-Type") === "image/jpeg", "category photos are served");
+const beforeRuns = imageCalls.length;
+await runImageJobs(env);
+check(imageCalls.length === beforeRuns, "once every photo exists, no more images are made (no surprise costs)");
+await new Promise((r) => setTimeout(r, 0));
+const stockMod = await import("../src/lib/images.js");
+const salonPrev2 = await (await call(`/p/${pSalon.id}?style=modern`)).text();
+check(salonPrev2.includes("/stock/beauty-1.jpg"), "previews use the category photo");
+delete env.OPENAI_API_KEY;
+const repBefore = emails.length;
+check((await runMonthlyReports(env, new Date("2026-11-15T15:00:00Z"))) === 0, "monthly email only goes out on the 1st");
+const sentN = await runMonthlyReports(env, new Date("2026-11-01T15:00:00Z"));
+const rep = emails.slice(repBefore).find((e) => e.subject.startsWith("Your website this month"));
+check(sentN >= 1 && !!rep && rep.text.includes("quote request"), "live sites get a monthly results email");
+check((await runMonthlyReports(env, new Date("2026-11-01T16:00:00Z"))) === 0, "the monthly email is only sent once");
 
 console.log(`\n${count} checks. ${ok ? "ALL TESTS PASSED" : "SOME TESTS FAILED"}`);
 process.exit(ok ? 0 : 1);
