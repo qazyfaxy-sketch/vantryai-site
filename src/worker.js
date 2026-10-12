@@ -31,6 +31,8 @@ import { adminPage } from "./pages/admin.js";
 import { placeholder } from "./pages/shell.js";
 import { accountRoute, isAccountPath } from "./account.js";
 import { getAccount, checkPassword, hashPassword, MIN_PASSWORD } from "./lib/auth.js";
+import { track, isBot } from "./lib/stats.js";
+import { siteMedia, serveImage } from "./account.js";
 
 const MAX_PREVIEWS_PER_EMAIL = 2;
 const MAX_PREVIEWS_PER_IP_HOUR = 6;
@@ -49,7 +51,7 @@ export default {
     const saasHost = (env.SAAS_CNAME_TARGET || "sites.vantryai.com").toLowerCase();
     if (!isApi && host !== saasHost && (host === ownHost || host.endsWith(`.${ownHost}`))) return fetch(req);
     try {
-      if (!isApi) return await serveHostedSite(host, url, env);
+      if (!isApi) return await serveHostedSite(host, url, env, req);
       return await route(req, url, env, ctx);
     } catch (err) {
       const status = err.status || 500;
@@ -67,7 +69,7 @@ export default {
 
 function corsFor(path, env) {
   // Quote forms live on customers' own domains, so that one endpoint accepts any origin.
-  const origin = path === "/api/lead" ? "*" : env.ALLOWED_ORIGIN || "https://vantryai.com";
+  const origin = path === "/api/lead" || path === "/api/event" ? "*" : env.ALLOWED_ORIGIN || "https://vantryai.com";
   return {
     "Access-Control-Allow-Origin": origin,
     "Access-Control-Allow-Methods": "POST, OPTIONS",
@@ -82,6 +84,7 @@ async function route(req, url, env, ctx) {
 
   if (req.method === "POST" && p === "/api/preview") return json(await createPreview(req, env, publicBase(env, url)), 200, cors);
   if (req.method === "POST" && p === "/api/lead") return json(await receiveLead(req, env), 200, cors);
+  if (req.method === "POST" && p === "/api/event") return json(await receiveEvent(req, env), 200, cors);
   if (req.method === "GET" && p === "/api/domains/check") return json(await domainCheck(req, url, env));
   if (req.method === "POST" && p === "/api/checkout") return json(await startCheckout(req, env, publicBase(env, url)));
   if (req.method === "POST" && p === "/api/stripe/webhook") return await stripeWebhook(req, env, ctx);
@@ -90,6 +93,7 @@ async function route(req, url, env, ctx) {
   if (req.method === "GET" && (m = p.match(/^\/p\/([a-z0-9]{10})$/))) return await showPreview(m[1], url, env);
   if (req.method === "GET" && (m = p.match(/^\/go\/([a-z0-9]{10})$/))) return await showGo(m[1], url, env);
   if (req.method === "GET" && (m = p.match(/^\/thanks\/(o[a-z0-9]{12})$/))) return await showThanks(m[1], env);
+  if (req.method === "GET" && (m = p.match(/^\/img\/(o[a-z0-9]{12})\/([a-z0-9]{16})$/))) return await serveImage(env, m[1], m[2]);
   if (p === "/admin" || p.startsWith("/admin/")) return await admin(req, url, env);
   if (isAccountPath(p)) return await accountRoute(req, url, env);
   if (p === "/" || p === "") return Response.redirect(env.SITE_ORIGIN || "https://vantryai.com", 302);
@@ -369,9 +373,19 @@ async function receiveLead(req, env) {
   return { ok: true };
 }
 
+// Call and text taps from customers' sites (counted, never tied to a person).
+async function receiveEvent(req, env) {
+  let b = {};
+  try { b = JSON.parse(await req.text()); } catch {}
+  const siteId = String(b.siteId || "");
+  const e = b.e === "call" ? "call" : b.e === "text" ? "text" : null;
+  if (e && /^o[a-z0-9]{12}$/.test(siteId) && !isBot(req.headers.get("User-Agent") || "")) track(env, siteId, e);
+  return { ok: true };
+}
+
 // ---------------- Customer websites ----------------
 
-async function serveHostedSite(host, url, env) {
+async function serveHostedSite(host, url, env, req) {
   const siteId = await getHostSiteId(env, host);
   const site = siteId && (await getSite(env, siteId));
   if (!site) return html(placeholder({ title: "Coming soon", message: "This website is being set up." }), 404);
@@ -391,11 +405,13 @@ async function serveHostedSite(host, url, env) {
   }
   if (url.pathname !== "/") return Response.redirect(`https://${host}/`, 301);
 
+  if (!isBot(req.headers.get("User-Agent") || "")) track(env, site.id, "view");
   const page = renderSite({
     copy: site.copy,
     input: site.input,
     style: site.style,
     palette: site.palette,
+    media: siteMedia(site, env),
     domain: bare,
     lead: { endpoint: `${env.PUBLIC_API || "https://api.vantryai.com"}/api/lead`, siteId: site.id },
   });
@@ -419,7 +435,7 @@ async function admin(req, url, env) {
   if (req.method === "GET" && (m = url.pathname.match(/^\/admin\/site\/(o[a-z0-9]{12})$/))) {
     const site = await getSite(env, m[1]);
     if (!site) throw httpError(404, "No site for that order yet.");
-    return html(renderSite({ copy: site.copy, input: site.input, style: site.style, palette: site.palette, domain: site.domain }), 200, noStore);
+    return html(renderSite({ copy: site.copy, input: site.input, style: site.style, palette: site.palette, media: siteMedia(site, env), domain: site.domain }), 200, noStore);
   }
 
   let flash = "";

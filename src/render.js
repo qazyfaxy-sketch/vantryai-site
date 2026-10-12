@@ -76,9 +76,41 @@ function heroArt(p, onDark) {
 </svg>`;
 }
 
+// The page sections, in their default order. Owners can hide and reorder them in their account.
+export const SECTIONS = [
+  ["services", "Services"],
+  ["gallery", "Photos"],
+  ["about", "About"],
+  ["hours", "Hours"],
+  ["faq", "Common questions"],
+  ["quote", "Contact form"],
+];
+export const DEFAULT_ORDER = SECTIONS.map(([k]) => k);
+
+// Clean list of { id, show } for every section, in the owner's order.
+export function sectionList(saved) {
+  const seen = new Set();
+  const out = [];
+  for (const x of Array.isArray(saved) ? saved : []) {
+    if (DEFAULT_ORDER.includes(x?.id) && !seen.has(x.id)) {
+      seen.add(x.id);
+      out.push({ id: x.id, show: x.show !== false });
+    }
+  }
+  for (const id of DEFAULT_ORDER) if (!seen.has(id)) out.push({ id, show: true });
+  return out;
+}
+
 // lead:   { endpoint, siteId } on a live site, so the quote form emails the owner.
 // domain: the site's own domain, for search engines.
-export function renderSite({ copy, input, style = "modern", previewBar = null, palette = null, lead = null, domain = null }) {
+// media:  { siteId, photos: [id], logo, heroPhoto, sections, imgBase, stats } from the owner's account.
+export function renderSite({ copy, input, style = "modern", previewBar = null, palette = null, lead = null, domain = null, media = null }) {
+  const m = media || {};
+  const imgBase = m.imgBase || "https://api.vantryai.com";
+  const img = (id) => `${imgBase}/img/${esc(m.siteId)}/${esc(id)}`;
+  const photos = (m.photos || []).filter(Boolean);
+  const heroPhoto = m.heroPhoto && photos.includes(m.heroPhoto) ? m.heroPhoto : null;
+  const hours = (copy.hours || []).filter(Boolean);
   const p = PALETTES[palette] || PALETTES[pickPalette(input.businessName)];
   const base = STYLES[style] || STYLES.modern;
   const s = { ...base, brand: p.brand, accent: style === "minimal" ? p.brand : p.accent };
@@ -95,6 +127,29 @@ export function renderSite({ copy, input, style = "modern", previewBar = null, p
   const faqs = (copy.faqs || [])
     .map((f) => `<details><summary>${esc(f.q)}</summary><p>${esc(f.a)}</p></details>`)
     .join("");
+
+  const blocks = {
+    services: services ? `<section id="services"><div class="wrap"><h2>Services</h2><div class="grid">${services}</div></div></section>` : "",
+    gallery: photos.length ? `<section id="photos"><div class="wrap"><h2>Photos</h2><div class="gallery">${photos.map((id) => `<img src="${img(id)}" alt="" loading="lazy">`).join("")}</div></div></section>` : "",
+    about: copy.about || areas ? `<section id="about"><div class="wrap"><h2>About us</h2><p class="about">${esc(copy.about)}</p>
+  ${areas ? `<h3 style="margin-top:28px">Areas we serve</h3><ul class="areas">${areas}</ul>` : ""}
+</div></section>` : "",
+    hours: hours.length ? `<section id="hours"><div class="wrap"><h2>Hours</h2><ul class="hours">${hours.map((h) => `<li>${esc(h)}</li>`).join("")}</ul></div></section>` : "",
+    faq: faqs ? `<section id="faq"><div class="wrap"><h2>Common questions</h2>${faqs}</div></section>` : "",
+    quote: "",
+  };
+  const quoteHtml = `<section id="quote"><div class="wrap"><div class="quote">
+  <h2>Get in touch</h2><p>Tell us what you need and we'll get back to you soon.</p>
+  <form id="quote-form" data-endpoint="${lead ? esc(lead.endpoint) : ""}" data-site="${lead ? esc(lead.siteId) : ""}">
+    <input name="name" placeholder="Your name" autocomplete="name" required maxlength="100">
+    <input name="contact" placeholder="Phone or email" autocomplete="tel" required maxlength="120">
+    <textarea name="details" rows="3" placeholder="What do you need done?" maxlength="2000"></textarea>
+    <input name="company" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px">
+    <button class="btn" type="submit">${esc(copy.ctaText || "Get a free quote")}</button>
+    <p class="formmsg" role="status" aria-live="polite"></p>
+  </form>
+  <script>${formScript}</script>
+</div></div></section>`;
 
   const bar = previewBar
     ? `<div class="pbar"><span class="ptext"><strong>This could be your website.</strong> <span class="pnote">Full refund before launch.</span></span>
@@ -154,14 +209,20 @@ summary{font-weight:600;cursor:pointer}.formmsg{margin:0;font-weight:600}details
 .quote{background:var(--brand);color:var(--brandText);border-radius:18px;padding:36px}
 form{display:grid;gap:12px;margin-top:16px;max-width:520px}
 input,textarea{font:inherit;padding:12px 14px;border-radius:10px;border:1px solid var(--line);width:100%}
+.logo-img{display:block;max-height:48px;max-width:180px;width:auto;height:auto}
+.hero-photo{position:absolute;right:0;top:0;width:44%;height:100%;object-fit:cover;z-index:0}
+.has-photo .wrap>h1,.has-photo .wrap>p,.has-photo .ctas{max-width:min(52%,560px)}
+.gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,220px),1fr));gap:12px}
+.gallery img{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:14px;display:block;background:var(--line)}
+.hours{list-style:none;padding:0;margin:0;font-size:18px;line-height:2}
 footer{padding:28px 0;color:var(--muted);font-size:14px;border-top:1px solid var(--line)}.byv a{color:inherit}
 .btn{white-space:nowrap}header{gap:12px}.logo{min-width:0}
-@media (max-width:860px){.art{opacity:.35;width:70%}}
+@media (max-width:860px){.art{opacity:.35;width:70%}.has-photo{display:flex;flex-direction:column;padding-bottom:0}.has-photo .wrap{order:1;width:100%}.hero-photo{order:2;position:static;width:100%;height:260px;margin-top:32px;display:block}.has-photo .wrap>h1,.has-photo .wrap>p,.has-photo .ctas{max-width:none}}
 @media (max-width:640px){.pnote{display:block}.pbar{gap:8px}.hero{padding:8px 0 56px}section{padding:44px 0}.call .num{display:none}.call{padding:10px 16px}}
 </style></head><body>
 ${bar}
-<div class="hero">${isOutdoorTrade(input.trade) || !input.trade ? heroArt(p, style === "modern") : abstractArt(p, style === "modern")}<div class="wrap">
-  <header><div class="logo">${esc(input.businessName)}</div>
+<div class="hero${heroPhoto ? " has-photo" : ""}">${heroPhoto ? `<img class="hero-photo" src="${img(heroPhoto)}" alt="">` : isOutdoorTrade(input.trade) || !input.trade ? heroArt(p, style === "modern") : abstractArt(p, style === "modern")}<div class="wrap">
+  <header><div class="logo">${m.logo ? `<img class="logo-img" src="${img(m.logo)}" alt="${esc(input.businessName)}">` : esc(input.businessName)}</div>
   ${tel ? `<a class="btn ghost call" href="tel:${tel}">Call<span class="num"> ${phone}</span></a>` : ""}</header>
   <h1>${esc(copy.headline)}</h1>
   <p>${esc(copy.subheadline)}</p>
@@ -169,26 +230,7 @@ ${bar}
   ${tel ? `<a class="btn ghost" href="sms:${tel}">Text us</a>` : ""}</div>
 </div></div>
 
-<section><div class="wrap"><h2>Services</h2><div class="grid">${services}</div></div></section>
-
-<section><div class="wrap"><h2>About us</h2><p class="about">${esc(copy.about)}</p>
-  ${areas ? `<h3 style="margin-top:28px">Areas we serve</h3><ul class="areas">${areas}</ul>` : ""}
-</div></section>
-
-<section><div class="wrap"><h2>Common questions</h2>${faqs}</div></section>
-
-<section id="quote"><div class="wrap"><div class="quote">
-  <h2>Get in touch</h2><p>Tell us what you need and we'll get back to you soon.</p>
-  <form id="quote-form" data-endpoint="${lead ? esc(lead.endpoint) : ""}" data-site="${lead ? esc(lead.siteId) : ""}">
-    <input name="name" placeholder="Your name" autocomplete="name" required maxlength="100">
-    <input name="contact" placeholder="Phone or email" autocomplete="tel" required maxlength="120">
-    <textarea name="details" rows="3" placeholder="What do you need done?" maxlength="2000"></textarea>
-    <input name="company" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px">
-    <button class="btn" type="submit">${esc(copy.ctaText || "Get a free quote")}</button>
-    <p class="formmsg" role="status" aria-live="polite"></p>
-  </form>
-  <script>${formScript}</script>
-</div></div></section>
+${sectionList(m.sections).filter((x) => x.show).map((x) => (x.id === "quote" ? quoteHtml : blocks[x.id])).join("\n")}
 
 <footer><div class="wrap">© ${new Date().getFullYear()} ${esc(input.businessName)}${phone ? " · " + phone : ""}${lead ? ' <span class="byv">· Website by <a href="https://vantryai.com/?ref=site" rel="noopener">Vantry</a></span>' : ""}</div></footer>
 </body></html>`;
@@ -211,6 +253,8 @@ function schema(copy, input, domain) {
 
 // Sends the quote form to Vantry, which emails the owner. On previews it explains instead.
 const formScript = `(function(){var f=document.getElementById('quote-form');if(!f)return;var m=f.querySelector('.formmsg');
+if(f.dataset.endpoint){var ev=f.dataset.endpoint.replace(/\\/api\\/lead$/,'/api/event');document.addEventListener('click',function(e){var a=e.target.closest&&e.target.closest('a[href^="tel:"],a[href^="sms:"]');if(!a)return;
+try{navigator.sendBeacon(ev,new Blob([JSON.stringify({siteId:f.dataset.site,e:a.getAttribute('href').slice(0,3)==='tel'?'call':'text'})],{type:'text/plain'}));}catch(x){}});}
 f.addEventListener('submit',function(e){e.preventDefault();var ep=f.dataset.endpoint;
 if(!ep){m.textContent='This is a preview. Quote requests will reach you once your site is live.';return;}
 var b=f.querySelector('button');b.disabled=true;m.textContent='Sending…';

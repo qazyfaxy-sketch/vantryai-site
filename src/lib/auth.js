@@ -34,7 +34,7 @@ export async function checkPassword(password, { salt, hash, iter }) {
   return diff === 0;
 }
 
-export const normEmail = (e = "") => String(e).trim().toLowerCase().slice(0, 120);
+export const normEmail = (e) => String(e ?? "").trim().toLowerCase().slice(0, 120);
 export const getAccount = (env, email) => getJson(env, `account:${normEmail(email)}`);
 export const putAccount = (env, acct) => putJson(env, `account:${acct.email}`, acct);
 

@@ -25,6 +25,11 @@ custom_domain = true
 pattern = "*/*"
 zone_name = "vantryai.com"
 
+# Visits and call/text taps on customer sites (free). Created automatically on first write.
+[[analytics_engine_datasets]]
+binding = "STATS"
+dataset = "vantry_stats"
+
 [vars]
 API_HOST = "api.vantryai.com"
 PUBLIC_API = "https://api.vantryai.com"
@@ -46,4 +51,5 @@ DAILY_PREVIEW_CAP = "300"
 # CF_API_TOKEN           Cloudflare token with Registrar, Zone, DNS, Workers Routes, SSL for SaaS permissions
 # RESEND_API_KEY         resend.com > API keys
 # ADMIN_TOKEN            a long random password for your /admin dashboard
+# CF_ANALYTICS_TOKEN     optional: token with "Account Analytics: Read" for site stats (else CF_API_TOKEN is used)
 # TURNSTILE_SECRET       optional: Cloudflare Turnstile bot check for the preview form

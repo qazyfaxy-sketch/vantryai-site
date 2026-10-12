@@ -109,6 +109,11 @@ globalThis.fetch = async (input, opts = {}) => {
     if (path.endsWith("/dns_records") || path.endsWith("/workers/routes")) {
       return ok200({ success: true, result: method === "GET" ? [] : { id: "x" } });
     }
+    if (path.endsWith("/analytics_engine/sql")) {
+      calls.push(`sql:${body.includes("index1 = '") ? "site" : "?"}`);
+      const today = new Date().toISOString().slice(0, 10) + " 00:00:00";
+      return ok200({ data: [{ event: "view", day: today, n: 42 }, { event: "call", day: today, n: 3 }] });
+    }
     if (path.endsWith("/custom_hostnames")) {
       if (method === "GET") return ok200({ success: true, result: hostnameActive ? [{ id: "ch1", status: "active", ssl: { status: "active" } }] : [] });
       return ok200({ success: true, result: { id: "ch1", status: "pending", ssl: { status: "pending_validation" } } });
@@ -121,7 +126,8 @@ globalThis.fetch = async (input, opts = {}) => {
 const store = new Map();
 const kv = {
   get: async (k) => store.get(k) ?? null,
-  put: async (k, v) => void store.set(k, v),
+  getWithMetadata: async (k) => ({ value: store.get(k) ?? null, metadata: store.get(`meta:${k}`) ?? null }),
+  put: async (k, v, o) => { store.set(k, v); if (o?.metadata) store.set(`meta:${k}`, o.metadata); },
   delete: async (k) => void store.delete(k),
   list: async ({ prefix = "" } = {}) => ({ keys: [...store.keys()].filter((k) => k.startsWith(prefix)).map((name) => ({ name })), list_complete: true }),
 };
@@ -142,7 +148,9 @@ const env = {
   API_HOST: "api.vantryai.com",
   SAAS_CNAME_TARGET: "sites.vantryai.com",
   PREVIEWS: kv,
+  STATS: { writeDataPoint: (d) => statPoints.push(d) },
 };
+const statPoints = [];
 
 const pending = [];
 const ctx = { waitUntil: (p) => pending.push(p) };
@@ -416,6 +424,44 @@ const rs = await call("/reset", { method: "POST", headers: { "Content-Type": "ap
 check(rs.status === 303 && JSON.parse(store.get("account:pat@buckeye.test")).siteIds.includes(orderId2), "reset sets the password and finds their existing site");
 check((await call(`/reset?t=${tok}`)).status === 400, "a reset link only works once");
 check((await call("/login", loginForm("pat@buckeye.test", "new-pass-123"))).status === 303, "they can log in with the new password");
+
+// ---------- 12. editor: preview, photos, sections, AI, stats ----------
+const c2 = (await call("/login", loginForm("owner@greenridge.test", PW))).headers.get("Set-Cookie").split(";")[0];
+const as2 = (path, opts = {}) => call(path, { ...opts, headers: { ...(opts.headers || {}), Cookie: c2 } });
+const edHtml = await (await as2(`/account/site/${orderId1}`)).text();
+check(edHtml.includes('id="pv"') && edHtml.includes("Tell AI what to change") && edHtml.includes('id="secs"') && edHtml.includes("Add photos"), "editor has live preview, AI box, sections and photo upload");
+const jpeg = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0, 16, 74, 70, 73, 70, 0, 1, 1, 1]);
+const up = await as2(`/account/site/${orderId1}/photo`, { method: "POST", headers: { "Content-Type": "image/jpeg" }, body: jpeg });
+const upj = await up.json();
+check(up.status === 200 && /^[a-z0-9]{16}$/.test(upj.id), "photo upload works");
+check((await as2(`/account/site/${orderId1}/photo`, { method: "POST", headers: { "Content-Type": "image/jpeg" }, body: new TextEncoder().encode("<html>not a photo") })).status === 400, "fake photos (not real image files) are rejected");
+check((await call(`/account/site/${orderId1}/photo`, { method: "POST", headers: { "Content-Type": "image/jpeg" }, body: jpeg })).status === 401, "can't upload without logging in");
+const im = await call(`/img/${orderId1}/${upj.id}`);
+check(im.status === 200 && im.headers.get("Content-Type") === "image/jpeg", "uploaded photos are served");
+const base = new URLSearchParams({ businessName: "Green Ridge Lawn Care", phone: "614-555-0142", city: "Columbus", headline: "Fresh cuts weekly", subheadline: "Sub", ctaText: "Get a quote", about: "Local crew.", serviceAreas: "Columbus", hours: "Mon–Fri 8am–6pm\nSat 9am–1pm", sname0: "Mowing", sdesc0: "Weekly.", fq0: "Q?", fa0: "A.", style: "modern", palette: "forest", photos: `${upj.id},zzzzzzzzzzzzzzzz`, heroPhoto: upj.id, logo: upj.id,
+  sections: JSON.stringify([{ id: "faq", show: true }, { id: "services", show: true }, { id: "gallery", show: true }, { id: "hours", show: true }, { id: "about", show: false }, { id: "quote", show: true }]) });
+const prevRes = await as2(`/account/site/${orderId1}/preview`, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: base.toString() });
+const prevHtml = await prevRes.text();
+check(prevRes.status === 200 && prevHtml.includes("Fresh cuts weekly") && prevHtml.includes(`/img/${orderId1}/${upj.id}`) && !prevHtml.includes("zzzzzzzzzzzzzzzz"), "preview shows unsaved changes and only this site's photos");
+check(prevHtml.indexOf('id="faq"') < prevHtml.indexOf('id="services"') && !prevHtml.includes('id="about"') && prevHtml.includes("Sat 9am–1pm") && prevHtml.includes('class="hero has-photo"') && prevHtml.includes('class="logo-img"'), "sections follow the owner's order, hidden ones are gone, hours/top photo/logo show");
+check(!(await (await call("/", {}, "https://www.greenridgelawn.com")).text()).includes("Fresh cuts weekly"), "preview doesn't change the live site until Save");
+await as2(`/account/site/${orderId1}`, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: base.toString() });
+const live2 = await call("/", { headers: { "User-Agent": "Mozilla/5.0 (iPhone)" } }, "https://www.greenridgelawn.com");
+const live2Html = await live2.text();
+check(live2Html.includes("Fresh cuts weekly") && live2Html.includes('id="photos"'), "after Save, the live site has the new words and photos");
+check(statPoints.some((d) => d.blobs[0] === orderId1 && d.blobs[1] === "view"), "real visits are counted");
+const pts = statPoints.length;
+await call("/", { headers: { "User-Agent": "Googlebot/2.1" } }, "https://www.greenridgelawn.com");
+check(statPoints.length === pts, "bots are not counted as visits");
+const evt = await call("/api/event", { method: "POST", headers: { "Content-Type": "text/plain", "User-Agent": "Mozilla/5.0" }, body: JSON.stringify({ siteId: orderId1, e: "call" }) });
+check(evt.status === 200 && evt.headers.get("Access-Control-Allow-Origin") === "*" && statPoints.some((d) => d.blobs[1] === "call"), "call taps on the customer's site are counted");
+check(live2Html.includes("/api/event"), "live site reports call and text taps");
+const ai = await as2(`/account/site/${orderId1}/ai`, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ ...Object.fromEntries(base), instruction: "Make it friendlier" }).toString() });
+const aij = await ai.json();
+check(ai.status === 200 && aij.copy.headline === fakeCopy.headline && aij.copy.services.length === 3, "AI change returns new words for the form (not saved yet)");
+const dash = await (await as2("/account")).text();
+check(dash.includes("Last 30 days") && dash.includes(">42<") && dash.includes(">3<") && dash.includes("Quote requests"), "account shows visits, call taps and quote requests");
+check(calls.includes("sql:site"), "stats are read only for that one site");
 
 console.log(`\n${count} checks. ${ok ? "ALL TESTS PASSED" : "SOME TESTS FAILED"}`);
 process.exit(ok ? 0 : 1);
