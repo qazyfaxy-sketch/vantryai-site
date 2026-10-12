@@ -10,6 +10,7 @@
 //   GET  /thanks/:orderId      after payment
 //   POST /api/lead             quote requests from customers' sites
 //   GET  /admin?token=         your orders dashboard (approve, retry, take offline)
+//   /login, /account           customers log in with email + password and edit their site
 //
 // On any customer domain: serves that customer's website.
 // Every 10 minutes (cron): checks on domains still registering or waiting for DNS.
@@ -28,6 +29,8 @@ import { goPage } from "./pages/go.js";
 import { thanksPage } from "./pages/thanks.js";
 import { adminPage } from "./pages/admin.js";
 import { placeholder } from "./pages/shell.js";
+import { accountRoute, isAccountPath } from "./account.js";
+import { getAccount, checkPassword, hashPassword, MIN_PASSWORD } from "./lib/auth.js";
 
 const MAX_PREVIEWS_PER_EMAIL = 2;
 const MAX_PREVIEWS_PER_IP_HOUR = 6;
@@ -88,6 +91,7 @@ async function route(req, url, env, ctx) {
   if (req.method === "GET" && (m = p.match(/^\/go\/([a-z0-9]{10})$/))) return await showGo(m[1], url, env);
   if (req.method === "GET" && (m = p.match(/^\/thanks\/(o[a-z0-9]{12})$/))) return await showThanks(m[1], env);
   if (p === "/admin" || p.startsWith("/admin/")) return await admin(req, url, env);
+  if (isAccountPath(p)) return await accountRoute(req, url, env);
   if (p === "/" || p === "") return Response.redirect(env.SITE_ORIGIN || "https://vantryai.com", 302);
   throw httpError(404, "Page not found.");
 }
@@ -283,6 +287,17 @@ async function startCheckout(req, env, base) {
   if (name.endsWith("vantryai.com")) throw httpError(400, "Please pick your own web address.");
   if (await getHostSiteId(env, name)) throw httpError(409, "That domain is already connected to a Vantry site. Email booking@vantryai.com if it's yours.");
 
+  // Their account for editing the site later. Same email as before? Same password.
+  const password = String(b.password || "");
+  let pw = null;
+  const existing = await getAccount(env, preview.input.email);
+  if (existing) {
+    if (!(await checkPassword(password, existing))) throw httpError(400, "You already have a Vantry account with this email. Type that password, or reset it at api.vantryai.com/forgot.");
+  } else {
+    if (password.length < MIN_PASSWORD) throw httpError(400, `Pick a password with at least ${MIN_PASSWORD} characters. You'll use it to edit your site.`);
+    pw = await hashPassword(password);
+  }
+
   if (mode === "new") {
     if (!SELL_TLDS.includes(tldOf(name))) throw httpError(400, `We can register names ending in ${SELL_TLDS.map((t) => "." + t).join(", ")}.`);
     const [r] = await checkDomains(env, [name]);
@@ -298,6 +313,7 @@ async function startCheckout(req, env, base) {
     email: preview.input.email,
     businessName: preview.input.businessName,
     domain: { mode, name },
+    pw,
     status: "checkout",
     createdAt: Date.now(),
     history: [],
@@ -379,10 +395,11 @@ async function serveHostedSite(host, url, env) {
     copy: site.copy,
     input: site.input,
     style: site.style,
+    palette: site.palette,
     domain: bare,
     lead: { endpoint: `${env.PUBLIC_API || "https://api.vantryai.com"}/api/lead`, siteId: site.id },
   });
-  return html(page, 200, { "Cache-Control": "public, max-age=300" });
+  return html(page, 200, { "Cache-Control": "public, max-age=60" });
 }
 
 // ---------------- Your dashboard ----------------
@@ -402,7 +419,7 @@ async function admin(req, url, env) {
   if (req.method === "GET" && (m = url.pathname.match(/^\/admin\/site\/(o[a-z0-9]{12})$/))) {
     const site = await getSite(env, m[1]);
     if (!site) throw httpError(404, "No site for that order yet.");
-    return html(renderSite({ copy: site.copy, input: site.input, style: site.style, domain: site.domain }), 200, noStore);
+    return html(renderSite({ copy: site.copy, input: site.input, style: site.style, palette: site.palette, domain: site.domain }), 200, noStore);
   }
 
   let flash = "";

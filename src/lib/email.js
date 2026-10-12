@@ -35,6 +35,7 @@ function layout(text) {
 }
 
 const sign = "Thanks,\nVantry\nbooking@vantryai.com";
+const ACCOUNT = "https://api.vantryai.com/login";
 
 export function dnsSteps(domain, target) {
   return `To connect ${domain}, log in to the company where you bought it and add these two settings:
@@ -58,7 +59,10 @@ What happens next:
 - A real person checks your site.
 - We email you as soon as it's live, usually within 2 business days.
 
-${order.domain.mode === "own" ? dnsSteps(order.domain.name, env.SAAS_CNAME_TARGET || "sites.vantryai.com") + "\n\n" : ""}Changed your mind? You get a full refund any time before your site goes live. Just reply to this email.
+${order.domain.mode === "own" ? dnsSteps(order.domain.name, env.SAAS_CNAME_TARGET || "sites.vantryai.com") + "\n\n" : ""}You can log in and edit your site any time, with this email and the password you picked:
+${ACCOUNT}
+
+Changed your mind? You get a full refund any time before your site goes live. Just reply to this email.
 
 ${sign}`,
   }),
@@ -89,13 +93,16 @@ A few ideas to get more calls:
 - Add the link to your Google Business Profile and Facebook page.
 - Put it on your truck, cards and invoices.
 
-Need a change? Just reply to this email. You have 30 days of launch support included.
+Want to change something? Log in and edit your site any time. Changes show up within a minute:
+${ACCOUNT}
+
+Stuck? Just reply to this email.
 
 ${sign}`,
   }),
 
   newLead: ({ site, lead }) => ({
-    to: site.ownerEmail,
+    to: site.leadEmail || site.ownerEmail,
     replyTo: /@/.test(lead.contact) ? lead.contact : undefined,
     subject: `New quote request from your website`,
     text: `You have a new quote request from ${site.domain || "your website"}.
@@ -107,6 +114,19 @@ What they need: ${lead.details || "(not given)"}
 Reply fast: people often hire the first business that gets back to them.
 
 Sent by Vantry`,
+  }),
+
+  resetLink: ({ email, link }) => ({
+    to: email,
+    subject: "Reset your Vantry password",
+    text: `Hi,
+
+Someone asked to reset the password for your Vantry account. Pick a new one here (the link works for 1 hour):
+${link}
+
+Didn't ask for this? You can ignore this email. Your password stays the same.
+
+${sign}`,
   }),
 
   ownerAlert: ({ env, subject, text }) => ({ to: env.OWNER_EMAIL, subject: `Action needed: ${subject}`, text }),

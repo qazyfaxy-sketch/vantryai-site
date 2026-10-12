@@ -8,6 +8,7 @@ import { getOrder, saveOrder, getPreview, getSite, putSite, setHost, removeHost,
 import { registerDomain, registrationStatus, registrantFrom, connectBoughtDomain, addCustomHostname, getCustomHostname, hostnameIsActive } from "./lib/cloudflare.js";
 import { scheduleMonthlyPlan } from "./lib/stripe.js";
 import { send } from "./lib/email.js";
+import { attachSite } from "./lib/auth.js";
 
 const DNS_GIVE_UP_DAYS = 14;
 
@@ -45,8 +46,11 @@ export async function onCheckoutCompleted(env, session) {
     live: false,
     createdAt: Date.now(),
   };
+  site.leadEmail = order.email;
   await putSite(env, site);
   await setHost(env, order.domain.name, site.id); // shows "coming soon" until you approve
+  await attachSite(env, order.email, site.id, order.pw); // their login for editing the site
+  delete order.pw;
   await saveOrder(env, order, "Payment received");
 
   if (order.plan === "monthly" && session.subscription) {

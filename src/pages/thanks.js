@@ -24,7 +24,7 @@ export function thanksPage(order, site) {
     <li>A real person checks your ${esc(site?.businessName || "")} site.</li>
     <li>We email ${esc(order.email)} as soon as it's live, usually within 2 business days.</li>
   </ol>
-  ${done ? `<p><a class="jelly" href="https://www.${esc(order.domain.name)}">Visit my website</a></p>` : ""}
+  <p style="display:flex;gap:10px;flex-wrap:wrap">${done ? `<a class="jelly" href="https://www.${esc(order.domain.name)}">Visit my website</a>` : ""}<a class="${done ? "ghost" : "jelly"}" href="/login">Log in to edit my site</a></p>
   <p class="muted small">Changed your mind? You get a full refund any time before your site goes live. Just reply to our email.</p>
 </section>
 </main>`;

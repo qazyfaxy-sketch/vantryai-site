@@ -150,6 +150,7 @@ const flush = async () => {
   while (pending.length) await pending.shift();
 };
 const API = "https://api.vantryai.com";
+const PW = "mowing-2026!";
 const req = (path, opts = {}, host = API) => new Request(host + path, opts);
 const call = async (path, opts, host) => {
   const r = await worker.fetch(req(path, opts, host), env, ctx);
@@ -239,11 +240,11 @@ check(ds.results.some((r) => r.name === "greenridgemowing.com") && ds.results.so
 check((await call(`/api/domains/check?id=nopenopeno&q=x`)).status === 400, "domain search needs a real preview");
 
 // ---------- 3. checkout: new domain, pay once ----------
-check((await postJson("/api/checkout", { previewId: d1.id, style: "editorial", plan: "once", domainMode: "new", domain: "greenridgelawncare.com" })).status === 409, "can't buy a taken domain");
-check((await postJson("/api/checkout", { previewId: d1.id, style: "editorial", plan: "once", domainMode: "new", domain: "fancyname.com" })).status === 409, "can't pick a premium domain");
-check((await postJson("/api/checkout", { previewId: d1.id, plan: "once", domainMode: "new", domain: "not a domain" })).status === 400, "rejects nonsense domains");
+check((await postJson("/api/checkout", { password: PW, previewId: d1.id, style: "editorial", plan: "once", domainMode: "new", domain: "greenridgelawncare.com" })).status === 409, "can't buy a taken domain");
+check((await postJson("/api/checkout", { password: PW, previewId: d1.id, style: "editorial", plan: "once", domainMode: "new", domain: "fancyname.com" })).status === 409, "can't pick a premium domain");
+check((await postJson("/api/checkout", { password: PW, previewId: d1.id, plan: "once", domainMode: "new", domain: "not a domain" })).status === 400, "rejects nonsense domains");
 
-const co = await postJson("/api/checkout", { previewId: d1.id, style: "editorial", plan: "once", domainMode: "new", domain: "GreenRidgeLawn.com" });
+const co = await postJson("/api/checkout", { password: PW, previewId: d1.id, style: "editorial", plan: "once", domainMode: "new", domain: "GreenRidgeLawn.com" });
 const coj = await co.json();
 check(co.status === 200 && coj.url.startsWith("https://checkout.stripe.com/"), "checkout returns a Stripe page");
 const s1 = stripeSessions[0].params;
@@ -323,7 +324,7 @@ check(emails.length === leadsBefore, "spam bots filling the hidden field are ign
 
 // ---------- 8. own domain + monthly plan ----------
 const p2 = await (await postJson("/api/preview", { ...survey, businessName: "Buckeye Mowing", email: "pat@buckeye.test" }, { "CF-Connecting-IP": "3.3.3.3" })).json();
-const co2 = await postJson("/api/checkout", { previewId: p2.id, style: "modern", plan: "monthly", domainMode: "own", domain: "https://www.BuckeyeMowing.net/" });
+const co2 = await postJson("/api/checkout", { password: PW, previewId: p2.id, style: "modern", plan: "monthly", domainMode: "own", domain: "https://www.BuckeyeMowing.net/" });
 check(co2.status === 200, "checkout works with a domain they already own");
 const s2 = stripeSessions[stripeSessions.length - 1].params;
 const orderId2 = s2.get("metadata[orderId]");
@@ -357,7 +358,7 @@ globalThis.fetch = realFetch;
 
 // ---------- 10. domain registration failure + retry ----------
 const p3 = await (await postJson("/api/preview", { ...survey, businessName: "Riverbend Trees", email: "lee@river.test" }, { "CF-Connecting-IP": "4.4.4.4" })).json();
-await postJson("/api/checkout", { previewId: p3.id, plan: "once", domainMode: "new", domain: "riverbendtrees.com" });
+await postJson("/api/checkout", { password: PW, previewId: p3.id, plan: "once", domainMode: "new", domain: "riverbendtrees.com" });
 const orderId3 = stripeSessions[stripeSessions.length - 1].params.get("metadata[orderId]");
 regFails = true;
 await webhook({ type: "checkout.session.completed", data: { object: { ...session1, id: "cs_3", metadata: { orderId: orderId3 }, client_reference_id: orderId3, subscription: "sub_3" } } });
@@ -366,7 +367,55 @@ regFails = false;
 regState = "succeeded";
 await call("/admin/action", form({ token: env.ADMIN_TOKEN, orderId: orderId3, action: "retry" }));
 check(order(orderId3).status === "needs_review", "'Retry setup' fixes it after the problem is solved");
-check((await postJson("/api/checkout", { previewId: d1.id, plan: "once", domainMode: "own", domain: "greenridgelawn.com" })).status === 409, "a domain already in use can't be bought twice");
+check((await postJson("/api/checkout", { password: PW, previewId: d1.id, plan: "once", domainMode: "own", domain: "greenridgelawn.com" })).status === 409, "a domain already in use can't be bought twice");
+
+// ---------- 11. customer accounts ----------
+check((await postJson("/api/checkout", { previewId: p3.id, plan: "once", domainMode: "own", domain: "otherriver.com", password: "short" })).status === 400, "checkout needs a password for a new account");
+check(!order(orderId1).pw && !JSON.stringify([...store.values()]).includes(PW), "passwords are never stored in plain text, and the hash leaves the order");
+const acct1 = JSON.parse(store.get("account:owner@greenridge.test"));
+check(acct1.siteIds.includes(orderId1) && acct1.hash && acct1.salt, "paying creates the customer's account");
+const loginForm = (email, password, origin = API) => ({ method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded", Origin: origin, "CF-Connecting-IP": "7.7.7.7" }, body: new URLSearchParams({ email, password }).toString() });
+check((await call("/account")).status === 303, "account page sends you to log in");
+const bad = await call("/login", loginForm("owner@greenridge.test", "wrong-password"));
+check(bad.status === 401 && !bad.headers.get("Set-Cookie"), "wrong password doesn't log in");
+check((await call("/login", loginForm("owner@greenridge.test", PW, "https://evil.test"))).status === 403, "login form posted from another site is blocked");
+const good = await call("/login", loginForm("Owner@GreenRidge.test", PW));
+const cookie = (good.headers.get("Set-Cookie") || "").split(";")[0];
+check(good.status === 303 && good.headers.get("Location") === "/account" && /^vs=[a-z0-9]{40}$/.test(cookie), "right password logs in (email any case)");
+check((good.headers.get("Set-Cookie") || "").includes("HttpOnly") && (good.headers.get("Set-Cookie") || "").includes("Secure"), "login cookie is HttpOnly and Secure");
+const authed = (path, opts = {}) => call(path, { ...opts, headers: { ...(opts.headers || {}), Cookie: cookie } });
+const acctPage = await (await authed("/account")).text();
+check(acctPage.includes("Green Ridge Lawn Care") && acctPage.includes(`/account/site/${orderId1}`), "account lists their site");
+check((await authed(`/account/site/${orderId2}`)).status === 404, "you can't open someone else's site");
+const ed = await (await authed(`/account/site/${orderId1}`)).text();
+check(ed.includes('name="headline"') && ed.includes("A yard you") && ed.includes('name="palette"'), "editor shows their words, style and colors");
+const edit = new URLSearchParams({ businessName: "Green Ridge Lawn Care", phone: "614-555-0199", city: "Columbus", leadEmail: "jobs@greenridge.test", headline: "Columbus lawns, done right", subheadline: "Weekly mowing and cleanups.", ctaText: "Book a mow", about: "Local crew.", serviceAreas: "Columbus\nDublin", sname0: "Lawn mowing", sdesc0: "Weekly.", sname1: "", fq0: "Free quotes?", fa0: "Yes.", style: "minimal", palette: "navy" });
+const sv = await authed(`/account/site/${orderId1}`, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded", Origin: API }, body: edit.toString() });
+check(sv.status === 303, "saving edits works");
+const liveNow = await (await call("/", {}, "https://www.greenridgelawn.com")).text();
+check(liveNow.includes("Columbus lawns, done right") && liveNow.includes("Book a mow") && !liveNow.includes("Spring &amp; fall cleanup") && liveNow.includes("#24456B"), "edits show on the live site right away (words, services, colors)");
+await postJson("/api/lead", { siteId: orderId1, name: "Jo", contact: "jo@example.com", details: "Edging" }, { "CF-Connecting-IP": "8.8.8.8" });
+check(!!emailTo("jobs@greenridge.test", "New quote request"), "quote requests go to the email they picked");
+const emptyName = new URLSearchParams(edit); emptyName.set("businessName", "");
+check((await authed(`/account/site/${orderId1}`, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: emptyName.toString() })).status === 400, "can't save an empty business name");
+await authed(`/account/site/${orderId1}/undo`, { method: "POST" });
+check((await (await call("/", {}, "https://www.greenridgelawn.com")).text()).includes("A yard you"), "undo brings back the version before the last save");
+const lo = await authed("/logout", { method: "POST" });
+check((await authed("/account")).status === 303, "after logging out, the old cookie no longer works");
+
+// forgot password -> reset (also for sites made before accounts existed)
+store.delete("account:pat@buckeye.test");
+const fg = await call("/forgot", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded", "CF-Connecting-IP": "6.6.6.6" }, body: "email=pat%40buckeye.test" });
+const resetMail = emailTo("pat@buckeye.test", "Reset your Vantry password");
+check(fg.status === 200 && !!resetMail, "forgot password emails a reset link");
+const nobody = emails.length;
+await call("/forgot", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded", "CF-Connecting-IP": "6.6.6.5" }, body: "email=nobody%40x.test" });
+check(emails.length === nobody, "no email is sent for addresses without a site (and the page looks the same)");
+const tok = resetMail.text.match(/t=([a-z0-9]{40})/)[1];
+const rs = await call("/reset", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ t: tok, password: "new-pass-123" }).toString() });
+check(rs.status === 303 && JSON.parse(store.get("account:pat@buckeye.test")).siteIds.includes(orderId2), "reset sets the password and finds their existing site");
+check((await call(`/reset?t=${tok}`)).status === 400, "a reset link only works once");
+check((await call("/login", loginForm("pat@buckeye.test", "new-pass-123"))).status === 303, "they can log in with the new password");
 
 console.log(`\n${count} checks. ${ok ? "ALL TESTS PASSED" : "SOME TESTS FAILED"}`);
 process.exit(ok ? 0 : 1);

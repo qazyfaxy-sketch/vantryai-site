@@ -44,6 +44,12 @@ export function goPage({ previewId, style, businessName, suggestions }) {
   </div>
 </section>
 
+<section class="card" aria-labelledby="s4"><h2 id="s4">Your account</h2>
+  <p class="muted small">You'll log in with your email and this password to edit your site any time.</p>
+  <label for="pw" class="small"><strong>Create a password</strong> <span class="muted">(at least 8 characters)</span></label>
+  <input id="pw" type="password" autocomplete="new-password" minlength="8" maxlength="200">
+</section>
+
 <div id="err" class="alert" role="alert" hidden></div>
 <button class="jelly block" id="pay" type="submit">Continue to secure checkout</button>
 <p class="muted small center">Full refund if you change your mind before your site goes live. You'll pay on Stripe's secure page.</p>
@@ -66,6 +72,7 @@ export function goPage({ previewId, style, businessName, suggestions }) {
 .dom.off span{cursor:default;color:var(--muted);background:#FAFBFC}.dom.off small{color:var(--muted);font-weight:500}
 .row{display:flex;gap:8px;margin-top:6px}.row input{flex:1}
 #pane-own input{margin:6px 0 8px}
+#pw{width:100%;min-height:50px;border:1px solid #B9C3D1;border-radius:12px;padding:12px 14px;font:16px var(--sans);margin-top:6px}
 .plans{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
 .plan span{display:flex;flex-direction:column;gap:2px;border:1px solid var(--line);border-radius:16px;padding:16px;cursor:pointer;height:100%;background:#fff}
 .plan em{font-style:normal;font-size:12px;font-weight:600;color:var(--indigo)}
@@ -117,8 +124,10 @@ f.addEventListener('submit',function(e){
   e.preventDefault();showErr('');
   var domain=mode==='new'?((f.querySelector('input[name=domain]:checked')||{}).value||''):document.getElementById('own').value.trim();
   if(!domain){showErr(mode==='new'?'Pick a web address first.':'Type the domain you own, like yourbusiness.com.');return;}
+  var pw=document.getElementById('pw').value;
+  if(pw.length<8){showErr('Pick a password with at least 8 characters. You will use it to edit your site.');document.getElementById('pw').focus();return;}
   pay.disabled=true;pay.textContent='Opening secure checkout…';
-  fetch('/api/checkout',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({previewId:PREVIEW,style:f.elements['style'].value,plan:f.elements['plan'].value,domainMode:mode,domain:domain})})
+  fetch('/api/checkout',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({previewId:PREVIEW,style:f.elements['style'].value,plan:f.elements['plan'].value,domainMode:mode,domain:domain,password:pw})})
   .then(function(r){return r.json().then(function(j){if(!r.ok)throw new Error(j.error);return j;});})
   .then(function(j){location.href=j.url;})
   .catch(function(e){showErr(e.message||'Something went wrong. Please try again.');pay.disabled=false;pay.textContent='Continue to secure checkout';});
