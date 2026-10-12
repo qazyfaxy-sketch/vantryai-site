@@ -1,7 +1,7 @@
 // The customer's own account: log in, see their sites, edit them.
 import { esc } from "../lib/util.js";
 import { page } from "./shell.js";
-import { PALETTES, pickPalette, SECTIONS, sectionList } from "../render.js";
+import { PALETTES, SECTIONS, sectionList } from "../render.js";
 
 const FORM_CSS = `<style>
 label.f{display:block;font-weight:600;font-size:14px;margin:16px 0 6px}
@@ -132,7 +132,7 @@ ${rows || '<section class="card"><p style="margin:0">No sites yet. If you just p
 export function editorPage({ site, ok = "", error = "", canUndo = false, media }) {
   const c = site.copy || {};
   const i = site.input || {};
-  const pal = site.palette || pickPalette(site.businessName);
+  const pal = PALETTES[site.palette] ? site.palette : "";
   const id = esc(site.id);
   const imgUrl = (pid) => `${media.imgBase}/img/${id}/${esc(pid)}`;
   const field = (name, label, value, max, hint = "") =>
@@ -213,9 +213,10 @@ ${Array.from({ length: 5 }, (_, n) => { const f = faqs[n] || {}; return `<div cl
 
 <details class="card"><summary><h2>Look</h2></summary>
   <label class="f">Style</label><div class="opts">
-  ${["modern", "editorial", "minimal"].map((k) => `<label class="opt"><input type="radio" name="style" value="${k}"${site.style === k ? " checked" : ""}><span>${k[0].toUpperCase() + k.slice(1)}</span></label>`).join("")}</div>
+  ${[["modern", "Full photo"], ["editorial", "Side by side"], ["minimal", "Light and simple"]].map(([k, label]) => `<label class="opt"><input type="radio" name="style" value="${k}"${site.style === k ? " checked" : ""}><span>${label}</span></label>`).join("")}</div>
   <label class="f">Colors</label><div class="opts">
-  ${Object.entries(PALETTES).map(([k, p]) => `<label class="opt"><input type="radio" name="palette" value="${k}"${pal === k ? " checked" : ""}><span><span class="sw"><i style="background:${p.dark}"></i><i style="background:${p.brand}"></i><i style="background:${p.accent}"></i></span>&nbsp;${k[0].toUpperCase() + k.slice(1)}</span></label>`).join("")}</div>
+  <label class="opt"><input type="radio" name="palette" value=""${pal === "" ? " checked" : ""}><span>Recommended for you</span></label>
+  ${Object.entries(PALETTES).map(([k, p]) => `<label class="opt"><input type="radio" name="palette" value="${k}"${pal === k ? " checked" : ""}><span><span class="sw"><i style="background:${p.dark}"></i><i style="background:${p.brand}"></i><i style="background:${p.accent}"></i></span>&nbsp;${esc(p.name)}</span></label>`).join("")}</div>
 </details>
 
 <button class="jelly block" type="submit">Save changes</button>

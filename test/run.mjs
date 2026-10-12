@@ -397,11 +397,11 @@ check(acctPage.includes("Green Ridge Lawn Care") && acctPage.includes(`/account/
 check((await authed(`/account/site/${orderId2}`)).status === 404, "you can't open someone else's site");
 const ed = await (await authed(`/account/site/${orderId1}`)).text();
 check(ed.includes('name="headline"') && ed.includes("A yard you") && ed.includes('name="palette"'), "editor shows their words, style and colors");
-const edit = new URLSearchParams({ businessName: "Green Ridge Lawn Care", phone: "614-555-0199", city: "Columbus", leadEmail: "jobs@greenridge.test", headline: "Columbus lawns, done right", subheadline: "Weekly mowing and cleanups.", ctaText: "Book a mow", about: "Local crew.", serviceAreas: "Columbus\nDublin", sname0: "Lawn mowing", sdesc0: "Weekly.", sname1: "", fq0: "Free quotes?", fa0: "Yes.", style: "minimal", palette: "navy" });
+const edit = new URLSearchParams({ businessName: "Green Ridge Lawn Care", phone: "614-555-0199", city: "Columbus", leadEmail: "jobs@greenridge.test", headline: "Columbus lawns, done right", subheadline: "Weekly mowing and cleanups.", ctaText: "Book a mow", about: "Local crew.", serviceAreas: "Columbus\nDublin", sname0: "Lawn mowing", sdesc0: "Weekly.", sname1: "", fq0: "Free quotes?", fa0: "Yes.", style: "minimal", palette: "tech" });
 const sv = await authed(`/account/site/${orderId1}`, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded", Origin: API }, body: edit.toString() });
 check(sv.status === 303, "saving edits works");
 const liveNow = await (await call("/", {}, "https://www.greenridgelawn.com")).text();
-check(liveNow.includes("Columbus lawns, done right") && liveNow.includes("Book a mow") && !liveNow.includes("Spring &amp; fall cleanup") && liveNow.includes("#24456B"), "edits show on the live site right away (words, services, colors)");
+check(liveNow.includes("Columbus lawns, done right") && liveNow.includes("Book a mow") && !liveNow.includes("Spring &amp; fall cleanup") && liveNow.includes("#0B1030"), "edits show on the live site right away (words, services, colors)");
 await postJson("/api/lead", { siteId: orderId1, name: "Jo", contact: "jo@example.com", details: "Edging" }, { "CF-Connecting-IP": "8.8.8.8" });
 check(!!emailTo("jobs@greenridge.test", "New quote request"), "quote requests go to the email they picked");
 const emptyName = new URLSearchParams(edit); emptyName.set("businessName", "");

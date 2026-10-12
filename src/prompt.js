@@ -381,3 +381,10 @@ export function qualityIssues(copy, input) {
   if (fake.length) issues.push(`Don't claim ${fake.map((c) => `"${c}"`).join(", ")}. The owner didn't mention it.`);
   return issues;
 }
+
+// The playbook's name ("beauty", "food"...), used by the site design to pick colors, fonts and photos.
+export function categoryOf(trade = "") {
+  const p = playbookFor(trade);
+  for (const [k, v] of Object.entries(PLAYBOOKS)) if (v === p) return k;
+  return "general";
+}

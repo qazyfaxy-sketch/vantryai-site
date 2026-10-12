@@ -229,7 +229,7 @@ async function draftFromForm(f, site, env) {
     heroPhoto,
     sections: sections || site.sections || null,
     style: ["modern", "editorial", "minimal"].includes(style) ? style : site.style,
-    palette: PALETTES[pal] ? pal : site.palette,
+    palette: PALETTES[pal] ? pal : null, // empty = recommended look for their business
   };
   return { draft, error };
 }
