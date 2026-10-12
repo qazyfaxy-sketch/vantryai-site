@@ -15,12 +15,14 @@ ${noindex ? '<meta name="robots" content="noindex">' : ""}
 <style>
 :root{--navy:#141A3D;--indigo:#3B88DA;--pale:#F1F7FF;--ink:#1B1D33;--muted:#5D6080;--line:#D5DFED;--ok:#1F7A4D;--bad:#9B203F;--serif:'Poppins','Inter',Arial,sans-serif;--sans:'Inter',Arial,sans-serif}
 *{box-sizing:border-box}html{background:#ECF3FF}body{margin:0;min-height:100vh;background:linear-gradient(160deg,#FBFCFF 0%,#ECF3FF 100%);color:var(--ink);font:16px/1.6 var(--sans)}
-a{color:var(--indigo)}
+a{color:#2E6FC0;font-weight:600;text-decoration:none;border-radius:6px;transition:color .15s}a:hover{color:#1F4E9E;text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:4px}
+.back{display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:8px 14px 8px 10px;border:1px solid var(--line);border-radius:999px;background:#fff;color:var(--ink);font-size:14px}.back:hover{text-decoration:none;border-color:#9DBCE6;color:var(--ink)}.back svg{width:16px;height:16px}
+.ghost:hover{text-decoration:none;border-color:#9DBCE6}.jelly:hover{text-decoration:none}
 .top{border-bottom:1px solid #E4E8F3;background:#FBFCFFF0}
 .top .in{width:min(1040px,calc(100% - 32px));margin:auto;display:flex;align-items:center;justify-content:space-between;min-height:68px;gap:16px}
 .wordmark{font-size:26px;font-weight:700;letter-spacing:-1.5px;color:var(--navy);text-decoration:none}
 .wordmark img{display:block;height:34px;width:auto}
-.top small{color:var(--muted);font-size:13px}
+.top small{color:var(--muted);font-size:13px}@media(max-width:560px){.top small span{display:none}}
 main{width:min(760px,calc(100% - 32px));margin:0 auto;padding:44px 0 80px}
 main.wide{width:min(1040px,calc(100% - 32px))}
 h1{font-family:var(--serif);font-weight:700;font-size:clamp(32px,5vw,44px);line-height:1.08;letter-spacing:-.035em;margin:0 0 10px;text-wrap:balance}
@@ -41,7 +43,7 @@ input[type=text],input[type=search]{width:100%;min-height:50px;border:1px solid 
 .ok{color:var(--ok)}.bad{color:var(--bad)}
 @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style></head><body>
-<header class="top"><div class="in"><a class="wordmark" href="https://vantryai.com" aria-label="Vantry home"><img src="https://vantryai.com/logo.png" srcset="https://vantryai.com/logo@2x.png 2x" alt="Vantry" height="34"></a><small>Questions? <a href="mailto:booking@vantryai.com">booking@vantryai.com</a></small></div></header>
+<header class="top"><div class="in"><a class="wordmark" href="https://vantryai.com" aria-label="Vantry home"><img src="https://vantryai.com/logo.png" srcset="https://vantryai.com/logo@2x.png 2x" alt="Vantry" height="34"></a><small><span>Questions? </span><a href="mailto:booking@vantryai.com">booking@vantryai.com</a></small></div></header>
 ${body}
 ${script ? `<script>${script}</script>` : ""}
 </body></html>`;

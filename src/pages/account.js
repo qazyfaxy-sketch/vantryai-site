@@ -20,7 +20,7 @@ textarea{min-height:96px;resize:vertical;line-height:1.5}
 .ok-box{border:1px solid #BFE3CF;background:#EEF9F2;color:#1F5C3B;border-radius:12px;padding:12px 14px;font-size:14px;margin-bottom:18px}
 .site-row{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap}
 .site-row h2{margin:0}.acts{display:flex;gap:8px;flex-wrap:wrap}
-.links{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:16px;font-size:14px}
+.links{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-top:18px;font-size:14px}
 .save{margin-top:8px}
 .tag{display:inline-block;font-size:12px;font-weight:600;border-radius:999px;padding:3px 10px;background:var(--pale);color:var(--indigo)}
 .tag.live{background:#E3F5EA;color:#1F7A4D}
@@ -146,7 +146,7 @@ export function editorPage({ site, ok = "", error = "", canUndo = false, media }
   const photos = site.photos || [];
 
   const body = `<div class="ed-top"><div class="ed-in">
-  <a class="small" href="/account">← Account</a>
+  <a class="back" href="/account"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3L5 8l5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Account</a>
   <div class="tabs" role="tablist"><button type="button" class="tab" data-tab="edit" aria-selected="true">Edit</button><button type="button" class="tab" data-tab="preview" aria-selected="false">Preview</button></div>
   <button class="jelly sm" type="submit" form="ed">Save</button>
 </div></div>
@@ -220,7 +220,7 @@ ${Array.from({ length: 5 }, (_, n) => { const f = faqs[n] || {}; return `<div cl
 
 <button class="jelly block" type="submit">Save changes</button>
 </form>
-<div class="links"><a href="/account/site/${id}/view" target="_blank" rel="noopener">View my live site</a>
+<div class="links"><a class="ghost" href="/account/site/${id}/view" target="_blank" rel="noopener">View my live site</a>
 ${canUndo ? `<form method="post" action="/account/site/${id}/undo" style="margin:0"><button class="ghost" type="submit">Undo my last save</button></form>` : ""}</div>
 </div>
 <div class="ed-preview"><div class="frame-bar"><span class="muted small">Preview</span><span class="dev"><button type="button" data-dev="phone" aria-pressed="false">Phone</button><button type="button" data-dev="desktop" aria-pressed="true">Computer</button></span></div>

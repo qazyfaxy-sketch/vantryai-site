@@ -471,7 +471,7 @@ check(qualityIssues(fakeCopy, { ...inp, businessName: "Green Ridge Lawn Care", s
 const badCopy = { headline: "Elevate Your Look With Columbus's #1 Barbers!", subheadline: "x", ctaText: "Book", about: "With 15 years of experience, we are licensed and insured.", services: [{ name: "Fades", description: "Top-notch fades." }], faqs: [] };
 const bi = qualityIssues(badCopy, inp).join(" | ");
 check(/exclamation/.test(bi) && /elevate/.test(bi) && /#1/.test(bi) && /15/.test(bi) && /licensed/i.test(bi), "quality check catches hype words, made-up numbers and fake claims");
-check(playbookFor("Barbershop").label.startsWith("Beauty") && playbookFor("Plumbing").label.startsWith("Home") && playbookFor("Food truck").label.startsWith("Food") && playbookFor("Underwater basket weaving").label === "Local business", "each business type gets its own playbook");
+check(playbookFor("Barbershop").label.startsWith("Beauty") && playbookFor("Plumbing").label.startsWith("Home") && playbookFor("Food truck").label.startsWith("Food") && playbookFor("Underwater basket weaving").label === "Business" && playbookFor("Something else, Doula").label === "Family and care" && playbookFor("Escape room").label.startsWith("Entertainment"), "each business type gets its own playbook");
 // a bad first draft gets sent back once for a fix
 let aiCalls = 0;
 const realFetch2 = globalThis.fetch;
