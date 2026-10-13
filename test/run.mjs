@@ -530,5 +530,27 @@ const rep = emails.slice(repBefore).find((e) => e.subject.startsWith("Your websi
 check(sentN >= 1 && !!rep && rep.text.includes("quote request"), "live sites get a monthly results email");
 check((await runMonthlyReports(env, new Date("2026-11-01T16:00:00Z"))) === 0, "the monthly email is only sent once");
 
+// ---------- 15. follow-up emails for previews that didn't buy ----------
+const { runNurture } = await import("../src/lib/nurture.js");
+const pN = await (await postJson("/api/preview", { ...survey, businessName: "Nurture Nails", email: "nails@n.test", trade: "Nail salon" }, { "CF-Connecting-IP": "12.12.12.12" })).json();
+check(store.has(`nurture:${pN.id}`), "making a preview starts the reminder emails");
+const t0 = Date.now();
+const toN = () => emails.filter((e) => e.to[0] === "nails@n.test").length;
+const nb = toN();
+await runNurture(env, t0 + 3600000);
+check(toN() === nb, "no reminder in the first day");
+await runNurture(env, t0 + 1.1 * 86400000);
+const m1 = emails.filter((e) => e.to[0] === "nails@n.test").pop();
+check(m1.to[0] === "nails@n.test" && m1.subject.includes("Nurture Nails") && m1.text.includes(`/go/${pN.id}`) && m1.text.includes(`/u/${pN.id}`), "day 1 reminder has their designs, a go-live link and an unsubscribe link");
+await runNurture(env, t0 + 1.2 * 86400000);
+check(toN() === nb + 1, "each reminder is sent once");
+await runNurture(env, t0 + 3.1 * 86400000);
+check(toN() === nb + 2, "day 3 reminder goes out");
+const un = await call(`/u/${pN.id}`);
+check(un.status === 200 && store.has("unsub:nails@n.test") && !store.has(`nurture:${pN.id}`), "one click unsubscribes");
+await runNurture(env, t0 + 8 * 86400000);
+check(toN() === nb + 2, "no more reminders after unsubscribing");
+check(!store.has(`nurture:${d1.id}`), "people who bought get no reminders");
+
 console.log(`\n${count} checks. ${ok ? "ALL TESTS PASSED" : "SOME TESTS FAILED"}`);
 process.exit(ok ? 0 : 1);

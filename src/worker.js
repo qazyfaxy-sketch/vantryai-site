@@ -35,6 +35,7 @@ import { track, isBot } from "./lib/stats.js";
 import { siteMedia, serveImage } from "./account.js";
 import { stockReady, serveStock, runImageJobs } from "./lib/images.js";
 import { runMonthlyReports } from "./lib/reports.js";
+import { startNurture, runNurture, unsubscribe } from "./lib/nurture.js";
 
 const MAX_PREVIEWS_PER_EMAIL = 2;
 const MAX_PREVIEWS_PER_IP_HOUR = 6;
@@ -67,6 +68,7 @@ export default {
   async scheduled(event, env, ctx) {
     ctx.waitUntil(runPending(env, listPending));
     ctx.waitUntil(runImageJobs(env).catch((e) => console.log("Image jobs failed", e.message)));
+    ctx.waitUntil(runNurture(env).catch((e) => console.log("Follow-ups failed", e.message)));
     ctx.waitUntil(runMonthlyReports(env).catch((e) => console.log("Monthly reports failed", e.message)));
   },
 };
@@ -98,6 +100,10 @@ async function route(req, url, env, ctx) {
   if (req.method === "GET" && (m = p.match(/^\/go\/([a-z0-9]{10})$/))) return await showGo(m[1], url, env);
   if (req.method === "GET" && (m = p.match(/^\/thanks\/(o[a-z0-9]{12})$/))) return await showThanks(m[1], env);
   if (req.method === "GET" && (m = p.match(/^\/img\/(o[a-z0-9]{12})\/([a-z0-9]{16})$/))) return await serveImage(env, m[1], m[2]);
+  if (req.method === "GET" && (m = p.match(/^\/u\/([a-z0-9]{10})$/))) {
+    await unsubscribe(env, m[1]);
+    return html(placeholder({ title: "You're unsubscribed", message: "You won't get any more reminder emails about this preview." }));
+  }
   if (req.method === "GET" && (m = p.match(/^\/stock\/([a-zA-Z]+)-([12])\.jpg$/))) return (await serveStock(env, m[1], m[2])) || new Response("Not found", { status: 404 });
   if (p === "/admin" || p.startsWith("/admin/")) return await admin(req, url, env);
   if (isAccountPath(p)) return await accountRoute(req, url, env);
@@ -132,6 +138,7 @@ async function createPreview(req, env, base) {
   const copy = await writeCopy(input, env);
   const id = randomId();
   await putPreview(env, id, { input, copy, createdAt: Date.now() });
+  await startNurture(env, id, input); // reminder emails if they don't buy
   await env.PREVIEWS.put(countKey, String(used + 1), { expirationTtl: 60 * 60 * 24 * 30 });
 
   const link = (s) => `${base}/p/${id}?style=${s}`;

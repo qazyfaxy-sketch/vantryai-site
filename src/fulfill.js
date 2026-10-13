@@ -10,6 +10,7 @@ import { scheduleMonthlyPlan } from "./lib/stripe.js";
 import { send } from "./lib/email.js";
 import { attachSite } from "./lib/auth.js";
 import { queueSitePhoto, imagesOn } from "./lib/images.js";
+import { stopNurture } from "./lib/nurture.js";
 
 const DNS_GIVE_UP_DAYS = 14;
 
@@ -29,6 +30,7 @@ export async function onCheckoutCompleted(env, session) {
   if (order.contact.email) order.billingEmail = order.contact.email;
 
   // Copy the preview into a permanent site record (previews expire after 30 days).
+  await stopNurture(env, order.previewId); // they bought: no more reminders
   const preview = await getPreview(env, order.previewId);
   if (!preview) {
     await saveOrder(env, order, "Paid, but the preview had expired");
