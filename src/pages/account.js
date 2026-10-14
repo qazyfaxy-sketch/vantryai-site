@@ -3,10 +3,10 @@ import { esc } from "../lib/util.js";
 import { page } from "./shell.js";
 import { PALETTES, SECTIONS, sectionList } from "../render.js";
 
-const FORM_CSS = `<style>
+export const FORM_CSS = `<style>
 label.f{display:block;font-weight:600;font-size:14px;margin:16px 0 6px}
 label.f small{font-weight:400;color:var(--muted)}
-input[type=email],input[type=password],input[type=tel],textarea{width:100%;min-height:50px;border:1px solid #B9C3D1;border-radius:12px;padding:12px 14px;font:16px var(--sans);background:#fff;color:var(--ink)}
+input[type=email],input[type=password],input[type=tel],input[type=url],textarea{width:100%;min-height:50px;border:1px solid #B9C3D1;border-radius:12px;padding:12px 14px;font:16px var(--sans);background:#fff;color:var(--ink)}
 textarea{min-height:96px;resize:vertical;line-height:1.5}
 .pair{border:1px solid var(--line);border-radius:14px;padding:4px 14px 14px;margin-top:12px;background:#FBFCFF}
 .pair label.f{margin-top:10px}
@@ -102,7 +102,21 @@ function statsBlock(st) {
 </div>`;
 }
 
-export function accountPage({ email, sites, orders, stats = {} }) {
+// Plus on: what it did this month. Plus off: a short invite built from their own numbers.
+function plusBlock(s, p, st, price, trial) {
+  const url = `/account/site/${esc(s.id)}/plus`;
+  if (p?.on) {
+    const ps = p.stats || {};
+    const bits = [[ps.missed, "missed call", "texted back"], [ps.bookings, "booking request", ""], [ps.reviews, "review request", "sent"], [ps.chats, "chat", "answered"]]
+      .filter(([v]) => v).map(([v, w, end]) => `${v} ${w}${v === 1 ? "" : "s"}${end ? " " + end : ""}`);
+    return `<div class="plus-row on"><div><strong>Vantry Plus</strong><span>${bits.length ? `This month: ${esc(bits.join(", "))}.` : "On and watching for missed calls and new requests."}</span></div><a class="ghost" href="${url}">Open Plus</a></div>`;
+  }
+  const calls = st?.visitsReady ? st.totals.call : 0;
+  const line = calls ? `${calls} ${calls === 1 ? "person" : "people"} tapped Call this month. Plus texts back anyone you miss.` : "Text back missed calls, get requests by text, and ask for reviews in one tap.";
+  return `<div class="plus-row"><div><strong>Never miss a customer</strong><span>${esc(line)}</span></div><a class="jelly sm" href="${url}">${trial ? `Try Plus free for ${trial} days` : `Add Plus, $${Math.round(price / 100)}/mo`}</a></div>`;
+}
+
+export function accountPage({ email, sites, orders, stats = {}, plus = {}, price = 3900, trial = 14 }) {
   const rows = sites
     .map((s) => {
       const o = orders[s.id] || {};
@@ -110,7 +124,7 @@ export function accountPage({ email, sites, orders, stats = {} }) {
       return `<section class="card"><div class="site-row">
   <div><h2>${esc(s.businessName)}</h2><p class="muted small" style="margin:4px 0 0">${esc(s.domain)} <span class="tag ${cls}">${label}</span></p></div>
   <div class="acts"><a class="jelly sm" href="/account/site/${esc(s.id)}">Edit my site</a><a class="ghost" href="/account/site/${esc(s.id)}/view" target="_blank" rel="noopener">View</a></div>
-</div>${statsBlock(stats[s.id])}</section>`;
+</div>${statsBlock(stats[s.id])}${plusBlock(s, plus[s.id], stats[s.id], price, trial)}</section>`;
     })
     .join("");
   const body = `<main>
@@ -124,6 +138,9 @@ ${rows || '<section class="card"><p style="margin:0">No sites yet. If you just p
 .stat strong{display:block;font:700 24px/1.1 var(--serif);letter-spacing:-.02em}
 .stat span{font-size:13px;color:var(--muted)}
 .chart{display:block;width:100%;height:64px}
+.plus-row{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;margin-top:16px;padding:14px 16px;border-radius:14px;background:linear-gradient(160deg,#fff,#EEF5FF);border:1px solid #D6E3F7}
+.plus-row strong{display:block;font-size:15px}.plus-row span{font-size:14px;color:var(--muted)}
+.plus-row.on{background:#F3FAF6;border-color:#CDEBDB}
 @media(max-width:560px){.stats{grid-template-columns:1fr 1fr}}
 </style>`;
   return page({ title: "Your account", body });

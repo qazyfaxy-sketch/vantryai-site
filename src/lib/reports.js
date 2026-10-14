@@ -3,6 +3,7 @@
 import { listOrders, getSite } from "./store.js";
 import { getStats } from "./stats.js";
 import { send } from "./email.js";
+import { plusOn, plusStats, plusTrialDays } from "../plus.js";
 
 const PER_RUN = 25; // emails per 10-minute run, so a big month spreads out
 
@@ -21,7 +22,9 @@ export async function runMonthlyReports(env, now = new Date()) {
       continue;
     }
     const stats = await getStats(env, o.id, 30);
-    await send(env, "monthlyReport", { site, stats });
+    const last = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 15)).getTime();
+    const plus = { on: plusOn(site), stats: plusOn(site) ? await plusStats(env, o.id, last) : null, trial: plusTrialDays(env) };
+    await send(env, "monthlyReport", { site, stats, plus });
     await env.PREVIEWS.put(key, "sent", { expirationTtl: 60 * 86400 });
     sent++;
   }

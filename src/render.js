@@ -83,8 +83,10 @@ export function sectionList(saved) {
 // lead:   { endpoint, siteId } on a live site, so the quote form emails the owner.
 // domain: the site's own domain, for search engines.
 // media:  { siteId, photos: [id], logo, heroPhoto, sections, imgBase } from the owner's account.
-export function renderSite({ copy, input, style = "modern", previewBar = null, palette = null, lead = null, domain = null, media = null }) {
+// plus:   Vantry Plus extras on a live site { booking, payUrl, chat } (the line number arrives as input.phone).
+export function renderSite({ copy, input, style = "modern", previewBar = null, palette = null, lead = null, domain = null, media = null, plus = null }) {
   const m = media || {};
+  const P = plus || {};
   const cat = categoryOf(input.trade);
   const L = lookFor(input.trade, palette);
   const F = FONTS[L.font] || FONTS.serif;
@@ -155,16 +157,18 @@ ${facts.length ? `<div class="wrap"><ul class="facts">${facts.join("")}</ul></di
   };
   const quoteHtml = `<section id="quote"><div class="wrap"><div class="contact" id="contact">
   <div class="contact-copy"><h2>Let's get started</h2><p>Tell us what you need and we'll get back to you soon.</p>
-  ${tel ? `<p class="contact-alt">Prefer to talk? <a href="tel:${tel}">Call</a> or <a href="sms:${tel}">text</a> ${phone}.</p>` : ""}</div>
+  ${tel ? `<p class="contact-alt">Prefer to talk? <a href="tel:${tel}">Call</a> or <a href="sms:${tel}">text</a> ${phone}.</p>` : ""}
+  ${P.payUrl ? `<p class="contact-alt"><a href="${esc(P.payUrl)}" rel="noopener" target="_blank">Pay a bill online</a></p>` : ""}</div>
   <form id="quote-form" data-endpoint="${lead ? esc(lead.endpoint) : ""}" data-site="${lead ? esc(lead.siteId) : ""}">
     <label>Your name<input name="name" autocomplete="name" required maxlength="100"></label>
     <label>Phone or email<input name="contact" autocomplete="tel" required maxlength="120"></label>
     <label>What do you need?<textarea name="details" rows="3" maxlength="2000"></textarea></label>
+    ${P.booking ? bookingFields(P.booking) : ""}
     <input name="company" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px">
     <button class="btn" type="submit">${cta}</button>
     <p class="formmsg" role="status" aria-live="polite"></p>
   </form>
-  <script>${formScript}</script>
+  <script>${formScript}</script>${P.booking ? `<script>${bookingScript(P.booking.days)}</script>` : ""}
 </div></div></section>`;
 
   const bar = previewBar
@@ -273,6 +277,23 @@ input,textarea{font:16px 'Inter',sans-serif;padding:14px 16px;border-radius:${L.
 input::placeholder,textarea::placeholder{color:inherit;opacity:.6}
 .contact .btn{justify-self:start;background:${isDark(L.heroBg) === isDark(L.accent) ? (isDark(L.heroBg) ? "#FFFFFF" : L.ink) : L.accent};color:${isDark(L.heroBg) === isDark(L.accent) ? (isDark(L.heroBg) ? L.ink : L.bg) : L.accentInk};border-color:transparent}
 .formmsg{margin:0;font-weight:600}
+.pick{display:grid;grid-template-columns:1fr 1fr;gap:12px}.pick select{width:100%;min-height:50px;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font:inherit;background:#fff;color:#111}.pick-note{margin:-6px 0 0;font-size:14px;opacity:.75}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.vchat{position:fixed;right:16px;bottom:16px;z-index:50;font-size:15px}
+.vchat-open{display:flex;align-items:center;gap:8px;border:0;border-radius:999px;padding:12px 18px;background:var(--accent);color:var(--accentInk);font:600 15px 'Inter',sans-serif;cursor:pointer;box-shadow:0 10px 30px -10px #0006}
+.vchat-open svg{width:18px;height:18px}
+.vchat-open[hidden]{display:none}
+@media(max-width:640px){.vchat-open{width:56px;height:56px;padding:0;justify-content:center}.vchat-open span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}.vchat-open svg{width:22px;height:22px}#quote .btn{margin-right:64px}}
+.vchat-panel{width:min(340px,calc(100vw - 32px));background:#fff;color:#16181D;border-radius:18px;box-shadow:0 24px 60px -20px #0007;overflow:hidden;display:flex;flex-direction:column;max-height:min(480px,calc(100vh - 40px))}
+.vchat-panel[hidden]{display:none}
+.vchat-head{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;background:var(--heroBg);color:var(--cInk)}
+.vchat-x{border:0;background:none;color:inherit;font-size:24px;line-height:1;cursor:pointer;width:36px;height:36px}
+.vchat-log{padding:14px 16px;overflow:auto;flex:1;display:flex;flex-direction:column;gap:8px}
+.vchat-log p{margin:0;padding:9px 12px;border-radius:14px;max-width:85%;line-height:1.45}
+.vchat-a{background:#F1F3F7;align-self:flex-start}.vchat-q{background:var(--accent);color:var(--accentInk);align-self:flex-end}
+.vchat-form{display:flex;gap:8px;padding:10px;border-top:1px solid #E6E8EE}
+.vchat-form input{flex:1;min-height:44px;border:1px solid #CDD2DC;border-radius:10px;padding:8px 12px;font:inherit}
+.vchat-form button{border:0;border-radius:10px;padding:0 14px;background:var(--accent);color:var(--accentInk);font-weight:600;cursor:pointer}
 footer{padding:36px 0 44px;color:var(--muted);font-size:14px}.foot{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}.foot a{text-decoration:none}.byv a{text-decoration:underline;text-underline-offset:3px}
 /* preview bar */
 .pbar{position:sticky;top:0;z-index:20;display:flex;gap:12px;justify-content:center;align-items:center;flex-wrap:wrap;padding:10px 16px;background:#141A3D;color:#EEF3FF;font:600 14px/1.3 'Inter',system-ui,sans-serif}
@@ -298,7 +319,40 @@ ${hero}
 ${sectionList(m.sections).filter((x) => x.show).map((x) => (x.id === "quote" ? quoteHtml : blocks[x.id])).join("\n")}
 </main>
 <footer><div class="wrap foot"><span>© ${new Date().getFullYear()} ${name}${phone ? ` · <a href="tel:${tel}">${phone}</a>` : ""}</span>${lead ? '<span class="byv">Website by <a href="https://vantryai.com/?ref=site" rel="noopener">Vantry</a></span>' : ""}</div></footer>
+${P.chat && lead ? chatWidget({ endpoint: P.chat.endpoint, siteId: lead.siteId, name: input.businessName }) : ""}
 </body></html>`;
+}
+
+// "Pick a time" in the contact form. Days come from the owner's settings; the list fills in the browser.
+function bookingFields(b) {
+  const h = (n) => (n === 0 ? "12am" : n < 12 ? `${n}am` : n === 12 ? "12pm" : `${n - 12}pm`);
+  const times = [];
+  for (let t = b.start; t < b.end; t++) times.push(h(t));
+  return `<div class="pick"><label>Pick a day<select name="day"><option value="">Any day</option></select></label>
+    <label>Pick a time<select name="time"><option value="">Any time</option>${times.map((t) => `<option>${t}</option>`).join("")}</select></label></div>
+    <p class="pick-note">We'll confirm the time with you.</p>`;
+}
+const bookingScript = (days) => `(function(){var s=document.querySelector('#quote-form select[name=day]');if(!s)return;var ok=${JSON.stringify(days)},d=new Date(),n=0;
+for(var i=1;i<=21&&n<12;i++){var x=new Date(d.getFullYear(),d.getMonth(),d.getDate()+i);if(ok.indexOf(x.getDay())<0)continue;n++;var o=document.createElement('option');
+o.textContent=x.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});s.appendChild(o);}})();`;
+
+// A small chat helper in the corner. Answers from the site's own info.
+function chatWidget({ endpoint, siteId, name }) {
+  return `<div class="vchat" id="vchat"><button class="vchat-open" type="button" aria-expanded="false" aria-controls="vchat-panel"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H8l-4 4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg><span>Questions?</span></button>
+<div class="vchat-panel" id="vchat-panel" role="dialog" aria-label="Chat with ${esc(name)}" hidden>
+<div class="vchat-head"><strong>${esc(name)}</strong><button type="button" class="vchat-x" aria-label="Close chat">×</button></div>
+<div class="vchat-log" aria-live="polite"><p class="vchat-a">Hi! Ask me anything about ${esc(name)}.</p></div>
+<form class="vchat-form"><label class="sr-only" for="vchat-in">Your question</label><input id="vchat-in" maxlength="600" placeholder="Type your question" autocomplete="off"><button type="submit">Send</button></form>
+</div></div>
+<script>(function(){var w=document.getElementById('vchat'),b=w.querySelector('.vchat-open'),p=w.querySelector('.vchat-panel'),log=w.querySelector('.vchat-log'),f=w.querySelector('form'),i=f.querySelector('input'),h=[];
+function show(o){p.hidden=!o;b.setAttribute('aria-expanded',o);b.hidden=o;if(o)i.focus();else b.focus();}
+b.onclick=function(){show(true);};w.querySelector('.vchat-x').onclick=function(){show(false);};
+document.addEventListener('keydown',function(e){if(e.key==='Escape'&&!p.hidden)show(false);});
+function add(t,c){var e=document.createElement('p');e.className=c;e.textContent=t;log.appendChild(e);log.scrollTop=log.scrollHeight;return e;}
+f.onsubmit=function(e){e.preventDefault();var q=i.value.trim();if(!q)return;i.value='';add(q,'vchat-q');h.push({role:'user',content:q});var t=add('…','vchat-a');f.querySelector('button').disabled=true;
+fetch(${JSON.stringify(endpoint)},{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({siteId:${JSON.stringify(siteId)},messages:h})})
+.then(function(r){return r.json().then(function(j){if(!r.ok)throw new Error(j.error);return j;});}).then(function(j){t.textContent=j.reply;h.push({role:'assistant',content:j.reply});})
+.catch(function(err){t.textContent=err.message||'Sorry, something went wrong. Please use the form on this page.';h.pop();}).finally(function(){f.querySelector('button').disabled=false;});};})();</script>`;
 }
 
 // The main hero button must stand out from the hero background.
@@ -375,7 +429,7 @@ try{navigator.sendBeacon(ev,new Blob([JSON.stringify({siteId:f.dataset.site,e:a.
 f.addEventListener('submit',function(e){e.preventDefault();var ep=f.dataset.endpoint;
 if(!ep){m.textContent='This is a preview. Quote requests will reach you once your site is live.';return;}
 var b=f.querySelector('button');b.disabled=true;m.textContent='Sending…';
-var d={siteId:f.dataset.site,name:f.name.value,contact:f.contact.value,details:f.details.value,company:f.company.value};
+var d={siteId:f.dataset.site,name:f.name.value,contact:f.contact.value,details:f.details.value,company:f.company.value,day:f.day?f.day.value:'',time:f.time?f.time.value:''};
 fetch(ep,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)}).then(function(r){return r.json().then(function(j){if(!r.ok)throw new Error(j.error||'Error');return j;});})
 .then(function(){f.reset();m.textContent='Thanks! We got your request and will get back to you soon.';})
 .catch(function(err){m.textContent=err.message||'Something went wrong. Please call or text us instead.';})

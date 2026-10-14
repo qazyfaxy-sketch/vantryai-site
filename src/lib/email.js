@@ -109,7 +109,8 @@ ${sign}`,
 
 Name: ${lead.name}
 Phone or email: ${lead.contact}
-What they need: ${lead.details || "(not given)"}
+What they need: ${lead.details || "(not given)"}${lead.when ? `
+Picked a time: ${lead.when} (confirm it with them)` : ""}
 
 Reply fast: people often hire the first business that gets back to them.
 
@@ -129,7 +130,7 @@ Didn't ask for this? You can ignore this email. Your password stays the same.
 ${sign}`,
   }),
 
-  monthlyReport: ({ site, stats }) => {
+  monthlyReport: ({ site, stats, plus = null }) => {
     const t = stats.totals;
     const n = (x) => x.toLocaleString("en-US");
     const lines = [
@@ -138,6 +139,16 @@ ${sign}`,
       stats.visitsReady && t.text && `- ${n(t.text)} taps on Text`,
       `- ${n(t.quote)} quote request${t.quote === 1 ? "" : "s"}`,
     ].filter(Boolean).join("\n");
+    // Plus owners see what it did for them; everyone else sees what they may have missed, from their own numbers.
+    const ps = plus?.stats || {};
+    const plusLines = plus?.on
+      ? [ps.missed && `- ${n(ps.missed)} missed call${ps.missed === 1 ? "" : "s"} texted back for you`, ps.bookings && `- ${n(ps.bookings)} booking request${ps.bookings === 1 ? "" : "s"}`, ps.reviews && `- ${n(ps.reviews)} review request${ps.reviews === 1 ? "" : "s"} sent`, ps.chats && `- ${n(ps.chats)} chat${ps.chats === 1 ? "" : "s"} answered`].filter(Boolean).join("\n")
+      : "";
+    const plusBlock = plus?.on
+      ? plusLines ? `\nVantry Plus last month:\n${plusLines}\n` : ""
+      : stats.visitsReady && t.call
+        ? `\n${n(t.call)} people tapped Call on your site. If you missed any of them, they probably called someone else. Vantry Plus texts every missed caller back in seconds, and it's free for ${plus?.trial || 14} days: ${ACCOUNT}\n`
+        : "";
     const tip = t.quote || t.call ? "Reply fast to new requests. People often hire the first business that gets back to them." : "Tip: add your website to your Google Business Profile, Facebook page and business cards. More places means more visits.";
     return {
       to: site.leadEmail || site.ownerEmail,
@@ -147,7 +158,7 @@ ${sign}`,
 Here's how ${site.businessName}'s website did in the last 30 days:
 
 ${lines}
-
+${plusBlock}
 ${tip}
 
 Want to change anything? Log in and edit your site any time:
@@ -156,6 +167,25 @@ ${ACCOUNT}
 ${sign}`,
     };
   },
+
+  plusStarted: ({ site }) => ({
+    to: site.leadEmail || site.ownerEmail,
+    subject: `Vantry Plus is on for ${site.businessName}`,
+    text: `Hi,
+
+Vantry Plus is now on for ${site.businessName}.
+
+${site.plus?.number ? `Your website now shows your new local line, ${site.plus.number.replace(/^\+1(\d{3})(\d{3})(\d{4})$/, "($1) $2-$3")}. It rings your phone like normal. If you can't pick up, the caller gets a text back right away, and you get a text telling you who called.` : "Missed-call text-back turns on as soon as your text line is ready. We'll set it up for you."}
+
+Two quick things to get the most out of it:
+1. Add your Google review link, so you can ask happy customers for a review in one tap.
+2. Turn on "Pick a time" if you want customers to choose a day and time in your contact form.
+
+Both are on your Plus page:
+${ACCOUNT}
+
+${sign}`,
+  }),
 
   ownerAlert: ({ env, subject, text }) => ({ to: env.OWNER_EMAIL, subject: `Action needed: ${subject}`, text }),
 };

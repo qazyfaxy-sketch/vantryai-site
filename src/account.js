@@ -10,6 +10,7 @@
 //   POST     /account/site/:id/ai        "tell AI what to change" (fills the form, doesn't save)
 //   POST     /account/site/:id/undo      back to the version before the last save
 //   GET      /account/site/:id/view      the site as it is now
+//   GET/POST /account/site/:id/plus      Vantry Plus: start a free trial, settings, review requests
 //   GET      /img/:siteId/:photoId       uploaded photos
 import { html, json, httpError, clientIp, rateLimit, randomId } from "./lib/util.js";
 import { getSite, putSite, getOrder, saveOrder, getJson, putJson, listOrders } from "./lib/store.js";
@@ -19,6 +20,9 @@ import { getStats } from "./lib/stats.js";
 import { stockReady } from "./lib/images.js";
 import { send } from "./lib/email.js";
 import { loginPage, forgotPage, resetPage, accountPage, editorPage } from "./pages/account.js";
+import { plusPage } from "./pages/plus.js";
+import { plusOn, plusStats, plusPrice, plusTrialDays, startPlusCheckout, billingPortal, settingsFromForm, settingsOf, requestReview, setUpLine } from "./plus.js";
+import { twilioOn } from "./lib/twilio.js";
 
 const NO_STORE = { "Cache-Control": "no-store", "X-Robots-Tag": "noindex" };
 const page = (body, status = 200, extra = {}) => html(body, status, { ...NO_STORE, ...extra });
@@ -59,12 +63,28 @@ export async function accountRoute(req, url, env) {
   const acct = await currentAccount(env, req);
   if (!acct) {
     if (req.method === "GET") return redirect("/login");
-    if (/\/(preview|photo|ai)$/.test(p)) return json({ error: "Please log in again." }, 401);
+    if (/\/(preview|photo|ai|review)$/.test(p)) return json({ error: "Please log in again." }, 401);
     return page(loginPage({ error: "Please log in again." }), 401);
   }
 
   if (p === "/account" && req.method === "GET") return showAccount(env, acct);
   let m;
+  if ((m = p.match(/^\/account\/site\/(o[a-z0-9]{12})\/(plus|plus\/start|plus\/billing|plus\/line|review)$/))) {
+    const site = await ownedSite(env, acct, m[1]);
+    const action = m[2];
+    if (action === "plus" && req.method === "GET") return showPlus(env, site, url.searchParams.get("started") ? "started" : "");
+    if (req.method === "POST") {
+      if (action === "plus") return savePlus(req, env, site);
+      if (action === "plus/start") return redirect(await startPlusCheckout(env, site, acct.email));
+      if (action === "plus/billing") return redirect(await billingPortal(env, site));
+      if (action === "plus/line") { await setUpLine(env, site); return redirect(`/account/site/${site.id}/plus`); }
+      if (action === "review") {
+        const f = await req.formData();
+        try { return json(await requestReview(env, site, { name: f.get("name"), contact: f.get("contact") })); }
+        catch (e) { return json({ error: e.message }, e.status || 500); }
+      }
+    }
+  }
   if ((m = p.match(/^\/account\/site\/(o[a-z0-9]{12})(\/view|\/undo|\/preview|\/photo|\/ai)?$/))) {
     const site = await ownedSite(env, acct, m[1]);
     const action = m[2] || "";
@@ -162,7 +182,31 @@ async function showAccount(env, acct) {
   const sites = (await Promise.all(acct.siteIds.map((id) => getSite(env, id)))).filter(Boolean);
   const orders = Object.fromEntries((await Promise.all(sites.map((s) => getOrder(env, s.id)))).filter(Boolean).map((o) => [o.id, o]));
   const stats = Object.fromEntries(await Promise.all(sites.map(async (s) => [s.id, await getStats(env, s.id, 30)])));
-  return page(accountPage({ email: acct.email, sites, orders, stats }));
+  const plus = Object.fromEntries(await Promise.all(sites.map(async (s) => [s.id, { on: plusOn(s), stats: plusOn(s) ? await plusStats(env, s.id) : null }])));
+  return page(accountPage({ email: acct.email, sites, orders, stats, plus, price: plusPrice(env), trial: plusTrialDays(env) }));
+}
+
+// ---------------- Vantry Plus ----------------
+
+async function showPlus(env, site, note = "", error = "", ok = "") {
+  const stats = await getStats(env, site.id, 30);
+  return page(plusPage({
+    site, ok, error, note,
+    on: plusOn(site),
+    settings: settingsOf(site),
+    stats, plusStats: plusOn(site) ? await plusStats(env, site.id) : {},
+    price: plusPrice(env), trial: plusTrialDays(env), texting: twilioOn(env),
+  }), error ? 400 : 200);
+}
+
+async function savePlus(req, env, site) {
+  if (!plusOn(site)) return showPlus(env, site, "", "Start Vantry Plus first.");
+  const { settings, error } = settingsFromForm(await req.formData(), site);
+  if (error) return showPlus(env, site, "", error);
+  const fresh = (await getSite(env, site.id)) || site;
+  fresh.plus = { ...fresh.plus, settings };
+  await putSite(env, fresh);
+  return showPlus(env, fresh, "", "", "Saved. Your site is updated.");
 }
 
 // ---------------- The editor ----------------

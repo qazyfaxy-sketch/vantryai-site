@@ -33,6 +33,8 @@ const fakeCopy = {
 };
 
 const calls = [];
+const texts = [];
+const chatCalls = [];
 const imageCalls = [];
 const emails = [];
 let stripeSessions = [];
@@ -52,6 +54,10 @@ globalThis.fetch = async (input, opts = {}) => {
 
   if (url.host === "api.anthropic.com") {
     const b = JSON.parse(body);
+    if (b.system.includes("website helper")) {
+      chatCalls.push(b);
+      return ok200({ content: [{ type: "text", text: "Yes, we serve Westerville. Use the form for a free quote." }] });
+    }
     if (!b.system.includes("Never invent licenses")) throw new Error("system prompt missing rules");
     return ok200({ content: [{ type: "text", text: JSON.stringify(fakeCopy) }] });
   }
@@ -64,8 +70,17 @@ globalThis.fetch = async (input, opts = {}) => {
     emails.push(JSON.parse(body));
     return ok200({ id: "em_1" });
   }
+  if (url.host === "api.twilio.com") {
+    const p = new URLSearchParams(body);
+    if (url.pathname.includes("/AvailablePhoneNumbers/")) return ok200({ available_phone_numbers: [{ phone_number: url.search.includes("AreaCode=614") ? "+16145550777" : "+13805550777" }] });
+    if (url.pathname.endsWith("/IncomingPhoneNumbers.json")) return ok200({ sid: "PN1", phone_number: p.get("PhoneNumber") });
+    if (url.pathname.endsWith("/Messages.json")) { texts.push({ to: p.get("To"), from: p.get("From"), service: p.get("MessagingServiceSid"), body: p.get("Body") }); return ok200({ sid: "SM1" }); }
+    if (method === "DELETE") { calls.push(`released:${url.pathname.split("/").pop()}`); return new Response(null, { status: 204 }); }
+  }
+  if (url.host === "messaging.twilio.com") return ok200({ sid: "x" });
   if (url.host === "api.stripe.com") {
     const p = new URLSearchParams(body);
+    if (url.pathname === "/v1/billing_portal/sessions") return ok200({ url: "https://billing.stripe.com/p/session_1" });
     if (url.pathname === "/v1/checkout/sessions") {
       const id = `cs_${stripeSessions.length + 1}`;
       stripeSessions.push({ id, params: p });
@@ -554,6 +569,89 @@ check(un.status === 200 && store.has("unsub:nails@n.test") && !store.has(`nurtur
 await runNurture(env, t0 + 8 * 86400000);
 check(toN() === nb + 2, "no more reminders after unsubscribing");
 check(!store.has(`nurture:${d1.id}`), "people who bought get no reminders");
+
+// ---------- 16. Vantry Plus ----------
+const { createHmac } = await import("node:crypto");
+const lg = await call("/login", { ...loginForm("owner@greenridge.test", PW), headers: { ...loginForm("x", "y").headers, "CF-Connecting-IP": "13.13.13.13" } });
+const ck = (lg.headers.get("Set-Cookie") || "").split(";")[0];
+const as = (path, opts = {}) => call(path, { ...opts, headers: { Origin: API, ...(opts.headers || {}), Cookie: ck } });
+const formPost = (path, data) => as(path, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams(data).toString() });
+const site1 = () => JSON.parse(store.get(`site:${orderId1}`));
+const siteHtml = async () => (await call("/", {}, "https://www.greenridgelawn.com")).text();
+
+check((await (await as("/account")).text()).includes("Try Plus free for 14 days"), "account invites owners to try Plus");
+const pp = await (await as(`/account/site/${orderId1}/plus`)).text();
+check(pp.includes("Never miss a customer") && pp.includes("$39") && pp.includes("tapped Call"), "Plus page shows the price and uses their own call numbers");
+check((await formPost(`/account/site/${orderId1}/plus`, { chat: "on" })).status === 400, "can't change Plus settings before starting Plus");
+const pst = await as(`/account/site/${orderId1}/plus/start`, { method: "POST" });
+const ps = stripeSessions[stripeSessions.length - 1].params;
+check(pst.status === 303 && pst.headers.get("Location").startsWith("https://checkout.stripe.com/"), "Start free trial goes to Stripe");
+check(ps.get("metadata[plusSiteId]") === orderId1 && ps.get("subscription_data[trial_period_days]") === "14" && ps.get("line_items[0][price_data][unit_amount]") === "3900" && ps.get("line_items[0][price_data][recurring][interval]") === "month", "Plus is $39/month with a 14-day free trial");
+
+const histBefore = order(orderId1).history.length;
+const plusSession = { id: "cs_plus", mode: "subscription", payment_status: "no_payment_required", metadata: { plusSiteId: orderId1 }, customer: "cus_1", subscription: "sub_plus" };
+await webhook({ type: "checkout.session.completed", data: { object: plusSession } });
+check(site1().plus?.status === "active" && site1().plus.sub === "sub_plus", "finishing Plus checkout turns Plus on");
+check(order(orderId1).history.length === histBefore, "a Plus checkout isn't treated as a new website order");
+check(!!emailTo("owner@greenridge.test", "Vantry Plus is on"), "owner gets a Plus welcome email");
+check(!site1().plus.number, "no phone line without Twilio keys");
+
+Object.assign(env, { TWILIO_ACCOUNT_SID: "AC_test", TWILIO_AUTH_TOKEN: "tw_secret", TWILIO_MESSAGING_SERVICE_SID: "MG_test" });
+await as(`/account/site/${orderId1}/plus/line`, { method: "POST" });
+check(site1().plus.number === "+16145550777" && store.get("tnum:+16145550777") === orderId1, "Plus buys a local line in the owner's area code");
+check((await siteHtml()).includes("(614) 555-0777"), "the live site shows the text-back line");
+
+const sset = await formPost(`/account/site/${orderId1}/plus`, { textBack: "on", textLeads: "on", chat: "on", booking: "on", bookDays: "2", bookStart: "8", bookEnd: "12", reviewUrl: "g.page/r/greenridge", payUrl: "https://square.link/u/abc" });
+check(sset.status === 200 && /^https:\/\/g\.page\/r\/greenridge\/?$/.test(site1().plus.settings.reviewUrl), "Plus settings save (links get https added)");
+check((await formPost(`/account/site/${orderId1}/plus`, { bookStart: "14", bookEnd: "9" })).status === 400, "booking end must be after start");
+const plusHtml = await siteHtml();
+check(plusHtml.includes('name="day"') && plusHtml.includes("<option>8am</option>") && !plusHtml.includes("<option>12pm</option>"), "contact form gets pick-a-day and time from the owner's hours");
+check(plusHtml.includes('id="vchat"') && plusHtml.includes("Pay a bill online"), "live site gets the chat helper and pay link");
+check(!(await (await call(new URL(d1.previews.modern).pathname + "?style=modern")).text()).includes('id="vchat"'), "previews never show Plus extras");
+
+const tb = texts.length;
+await postJson("/api/lead", { siteId: orderId1, name: "Jamie Lee", contact: "(614) 555-0123", details: "Mulch the front beds", day: "Tue, Nov 3", time: "9am" }, { "CF-Connecting-IP": "14.14.14.14" });
+const newTexts = texts.slice(tb);
+check(newTexts.some((t) => t.to === "+16145550142" && t.body.includes("New request") && t.body.includes("Tue, Nov 3 at 9am")), "owner gets new requests by text, with the picked time");
+check(newTexts.some((t) => t.to === "+16145550123" && t.from === "+16145550777" && t.body.includes("Thanks Jamie")), "customer gets an instant 'we got it' text from the business line");
+check(emails.filter((e) => e.subject.includes("New quote request")).pop().text.includes("Picked a time: Tue, Nov 3 at 9am"), "the request email shows the picked time");
+
+const rv = await (await formPost(`/account/site/${orderId1}/review`, { name: "Sam", contact: "614-555-0188" })).json();
+check(rv.via === "text" && texts.pop().body.includes("g.page/r/greenridge") , "review request texts the Google review link");
+check((await formPost(`/account/site/${orderId1}/review`, { name: "Sam", contact: "614-555-0188" })).status === 409, "the same customer isn't asked twice in 30 days");
+const rvE = await (await formPost(`/account/site/${orderId1}/review`, { name: "Ann", contact: "ann@example.com" })).json();
+check(rvE.via === "email" && !!emailTo("ann@example.com", "Thanks from Green Ridge"), "review requests can go by email too");
+
+const twSig = (url, params) => createHmac("sha1", "tw_secret").update(url + Object.keys(params).sort().map((k) => k + params[k]).join("")).digest("base64");
+const twPost = (path, params, sig) => call(path, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded", "X-Twilio-Signature": sig ?? twSig(API + path, params) }, body: new URLSearchParams(params).toString() });
+const callP = { To: "+16145550777", From: "+16145550166", CallSid: "CA1" };
+check((await twPost("/api/twilio/voice", callP, "fake")).status === 403, "fake Twilio requests are rejected");
+const vx = await (await twPost("/api/twilio/voice", callP)).text();
+check(vx.includes("<Dial") && vx.includes("+16145550142") && vx.includes("/api/twilio/voice-done"), "a call to the line rings the owner's phone");
+const tb2 = texts.length;
+const vd = await (await twPost("/api/twilio/voice-done", { ...callP, DialCallStatus: "no-answer" })).text();
+const missTexts = texts.slice(tb2);
+check(vd.includes("Sorry we missed your call") && missTexts.some((t) => t.to === "+16145550166" && t.from === "+16145550777" && t.body.includes("Sorry we missed your call")), "missed caller gets a text back right away");
+check(missTexts.some((t) => t.to === "+16145550142" && t.body.includes("Missed call from (614) 555-0166")), "owner is told who called");
+await twPost("/api/twilio/voice-done", { ...callP, DialCallStatus: "no-answer" });
+check(texts.length === tb2 + 2, "the same caller only gets one text-back per hour");
+const tb3 = texts.length;
+await twPost("/api/twilio/voice-done", { ...callP, From: "+16145550155", DialCallStatus: "completed" });
+check(texts.length === tb3, "answered calls get no text");
+await twPost("/api/twilio/sms", { To: "+16145550777", From: "+16145550166", Body: "Can you come Thursday?" });
+check(texts.pop()?.body.includes("Can you come Thursday?"), "texts to the line are passed to the owner");
+
+const ch = await postJson("/api/chat", { siteId: orderId1, messages: [{ role: "user", content: "Do you serve Westerville?" }] }, { "CF-Connecting-IP": "15.15.15.15" });
+const chj = await ch.json();
+check(ch.status === 200 && chj.reply.includes("Westerville") && chatCalls.pop().system.includes("Never invent prices"), "chat helper answers from the site's info");
+check(ch.headers.get("Access-Control-Allow-Origin") === "*", "chat works from the customer's own domain");
+const apl = await (await as("/account")).text();
+check(apl.includes("1 missed call texted back") && apl.includes("Open Plus"), "account shows what Plus did this month");
+
+await webhook({ type: "customer.subscription.deleted", data: { object: { id: "sub_plus", metadata: { plusSiteId: orderId1 } } } });
+check(site1().plus.status === "ended" && !store.has("tnum:+16145550777") && calls.includes("released:PN1.json"), "canceling Plus releases the line");
+const after = await siteHtml();
+check(site1().live && !after.includes("(614) 555-0777") && after.includes(site1().input.phone) && !after.includes('id="vchat"'), "the website stays live with the owner's own number after Plus ends");
 
 console.log(`\n${count} checks. ${ok ? "ALL TESTS PASSED" : "SOME TESTS FAILED"}`);
 process.exit(ok ? 0 : 1);

@@ -9,6 +9,8 @@
 //   POST /api/stripe/webhook   Stripe tells us about payments and cancellations
 //   GET  /thanks/:orderId      after payment
 //   POST /api/lead             quote requests from customers' sites
+//   POST /api/chat             Vantry Plus chat helper on customers' sites
+//   POST /api/twilio/*         calls and texts to Vantry Plus lines (missed-call text-back)
 //   GET  /admin?token=         your orders dashboard (approve, retry, take offline)
 //   /login, /account           customers log in with email + password and edit their site
 //
@@ -36,6 +38,8 @@ import { siteMedia, serveImage } from "./account.js";
 import { stockReady, serveStock, runImageJobs } from "./lib/images.js";
 import { runMonthlyReports } from "./lib/reports.js";
 import { startNurture, runNurture, unsubscribe } from "./lib/nurture.js";
+import { plusOn, plusView, onPlusStarted, onPlusEnded, onLead, chat, siteForNumber, onMissedCall, onIncomingText, settingsOf, bump } from "./plus.js";
+import { verifyTwilio, twiml, say, dial, toE164 } from "./lib/twilio.js";
 
 const MAX_PREVIEWS_PER_EMAIL = 2;
 const MAX_PREVIEWS_PER_IP_HOUR = 6;
@@ -75,7 +79,7 @@ export default {
 
 function corsFor(path, env) {
   // Quote forms live on customers' own domains, so that one endpoint accepts any origin.
-  const origin = path === "/api/lead" || path === "/api/event" ? "*" : env.ALLOWED_ORIGIN || "https://vantryai.com";
+  const origin = path === "/api/lead" || path === "/api/event" || path === "/api/chat" ? "*" : env.ALLOWED_ORIGIN || "https://vantryai.com";
   return {
     "Access-Control-Allow-Origin": origin,
     "Access-Control-Allow-Methods": "POST, OPTIONS",
@@ -94,6 +98,8 @@ async function route(req, url, env, ctx) {
   if (req.method === "GET" && p === "/api/domains/check") return json(await domainCheck(req, url, env));
   if (req.method === "POST" && p === "/api/checkout") return json(await startCheckout(req, env, publicBase(env, url)));
   if (req.method === "POST" && p === "/api/stripe/webhook") return await stripeWebhook(req, env, ctx);
+  if (req.method === "POST" && p === "/api/chat") return json(await chat(req, env), 200, cors);
+  if (req.method === "POST" && p.startsWith("/api/twilio/")) return await twilioHook(req, url, env, ctx);
 
   let m;
   if (req.method === "GET" && (m = p.match(/^\/p\/([a-z0-9]{10})$/))) return await showPreview(m[1], url, env);
@@ -361,7 +367,9 @@ async function stripeWebhook(req, env, ctx) {
   const obj = event.data?.object || {};
   let work = null;
   if (event.type === "checkout.session.completed" && obj.mode === "subscription" && obj.payment_status !== "unpaid") {
-    work = onCheckoutCompleted(env, obj);
+    work = obj.metadata?.plusSiteId ? onPlusStarted(env, obj) : onCheckoutCompleted(env, obj);
+  } else if (event.type === "customer.subscription.deleted" && obj.metadata?.plusSiteId) {
+    work = onPlusEnded(env, obj); // Plus ended; the website stays online
   } else if (event.type === "customer.subscription.deleted") {
     work = onSubscriptionEnded(env, obj);
   } else if (event.type === "invoice.payment_failed") {
@@ -394,10 +402,48 @@ async function receiveLead(req, env) {
     contact: String(b.contact || "").trim().slice(0, 120),
     details: String(b.details || "").trim().slice(0, 2000),
   };
+  // Pick-a-time (Vantry Plus booking)
+  const day = String(b.day || "").trim().slice(0, 30), time = String(b.time || "").trim().slice(0, 10);
+  if (day || time) lead.when = [day || "any day", time ? `at ${time}` : ""].filter(Boolean).join(" ");
   if (!lead.name || !lead.contact) throw httpError(400, "Please add your name and a phone number or email.");
   await addLead(env, siteId, lead);
   await send(env, "newLead", { site, lead });
+  if (plusOn(site)) {
+    if (lead.when) await bump(env, siteId, "bookings");
+    await onLead(env, site, lead).catch((e) => console.log("Plus lead failed", e.message));
+  }
   return { ok: true };
+}
+
+// ---------------- Vantry Plus phone lines (Twilio) ----------------
+// voice:      a call to the line rings the owner for 20 seconds
+// voice-done: nobody answered -> the caller gets a text back right away
+// sms:        a customer texted the line -> passed on to the owner
+async function twilioHook(req, url, env, ctx) {
+  const params = Object.fromEntries(new URLSearchParams(await req.text()));
+  const api = env.PUBLIC_API || url.origin;
+  const signedUrl = `${api}${url.pathname}${url.search}`;
+  if (!(await verifyTwilio(env, signedUrl, params, req.headers.get("X-Twilio-Signature")))) return new Response("Forbidden", { status: 403 });
+  const site = await siteForNumber(env, params.To);
+  const kind = url.pathname.slice("/api/twilio/".length);
+  if (kind === "voice") {
+    const owner = toE164(site?.input?.phone);
+    if (!site || !owner) return twiml(say("Sorry, this number isn't in service right now."));
+    return twiml(dial(owner, `${api}/api/twilio/voice-done`, params.From));
+  }
+  if (kind === "voice-done") {
+    const answered = params.DialCallStatus === "completed";
+    if (!answered && site && settingsOf(site).textBack) {
+      ctx.waitUntil(onMissedCall(env, site, params.From).catch((e) => console.log("Text-back failed", e.message)));
+      return twiml(say(`Sorry we missed your call. We're sending you a text right now so you can reach ${site.businessName} quickly.`) + "<Hangup/>");
+    }
+    return twiml("<Hangup/>");
+  }
+  if (kind === "sms") {
+    if (site) ctx.waitUntil(onIncomingText(env, site, params.From, params.Body).catch((e) => console.log("Text forward failed", e.message)));
+    return twiml();
+  }
+  return twiml();
 }
 
 // Call and text taps from customers' sites (counted, never tied to a person).
@@ -436,9 +482,11 @@ async function serveHostedSite(host, url, env, req) {
   if (url.pathname !== "/") return Response.redirect(`https://${host}/`, 301);
 
   if (!isBot(req.headers.get("User-Agent") || "")) track(env, site.id, "view");
+  const plus = plusView(site, env);
   const page = renderSite({
     copy: site.copy,
-    input: site.input,
+    input: plus?.phone ? { ...site.input, phone: plus.phone } : site.input, // Plus: calls go through the text-back line
+    plus,
     style: site.style,
     palette: site.palette,
     media: await siteMedia(site, env),
