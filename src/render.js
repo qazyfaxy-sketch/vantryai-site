@@ -314,19 +314,57 @@ function isDark(hex = "#000000") {
   return 0.2126 * r + 0.7152 * g + 0.0722 * b < 0.35;
 }
 
-// Facts for Google about the business. Only what the owner gave us.
+// Facts for Google and AI assistants (ChatGPT, Gemini, Siri) about the business.
+// Only what the owner gave us: services, area, hours, phone and their own questions.
 function schema(copy, input, domain) {
-  const data = {
-    "@context": "https://schema.org",
+  const url = domain ? `https://www.${domain}/` : undefined;
+  const services = (copy.services || []).filter((s) => s && s.name);
+  const faqs = (copy.faqs || []).filter((f) => f && f.q && f.a);
+  const hours = (copy.hours || []).filter(Boolean);
+  const business = {
     "@type": "LocalBusiness",
+    "@id": url ? `${url}#business` : undefined,
     name: input.businessName,
     description: copy.seoDescription || copy.subheadline || undefined,
     telephone: input.phone || undefined,
-    url: domain ? `https://www.${domain}/` : undefined,
+    url,
     areaServed: (copy.serviceAreas && copy.serviceAreas.length ? copy.serviceAreas : [input.city]).filter(Boolean),
     address: input.city ? { "@type": "PostalAddress", addressLocality: String(input.city).split(",")[0].trim(), addressCountry: "US" } : undefined,
+    knowsAbout: services.length ? services.map((s) => s.name) : undefined,
+    hasOfferCatalog: services.length
+      ? { "@type": "OfferCatalog", name: "Services", itemListElement: services.map((s) => ({ "@type": "Offer", itemOffered: { "@type": "Service", name: s.name, description: s.description || undefined } })) }
+      : undefined,
+    // Owners write hours in their own words, so they're shared as a note rather than guessed into a format.
+    additionalProperty: hours.length ? [{ "@type": "PropertyValue", name: "Hours", value: hours.join("; ") }] : undefined,
   };
-  return JSON.stringify(data).replace(/</g, "\\u003c");
+  const graph = [business];
+  if (faqs.length) graph.push({ "@type": "FAQPage", mainEntity: faqs.map((f) => ({ "@type": "Question", name: f.q, acceptedAnswer: { "@type": "Answer", text: f.a } })) });
+  return JSON.stringify({ "@context": "https://schema.org", "@graph": graph }).replace(/</g, "\\u003c");
+}
+
+// A plain-text summary at /llms.txt that AI assistants can read in one go.
+export function aiSummary(copy = {}, input = {}, domain = "") {
+  const clean = (s) => String(s ?? "").replace(/\s+/g, " ").trim();
+  const lines = [`# ${clean(input.businessName)}`, ""];
+  const desc = clean(copy.seoDescription || copy.subheadline);
+  if (desc) lines.push(`> ${desc}`, "");
+  if (copy.about) lines.push(clean(copy.about), "");
+  const facts = [
+    input.trade && `- Type of business: ${clean(input.trade)}`,
+    input.city && `- Location: ${clean(input.city)}`,
+    copy.serviceAreas?.length && `- Areas served: ${copy.serviceAreas.map(clean).join(", ")}`,
+    input.phone && `- Phone (call or text): ${clean(input.phone)}`,
+    domain && `- Website: https://www.${domain}/`,
+    domain && `- Request a quote: https://www.${domain}/#contact`,
+  ].filter(Boolean);
+  if (facts.length) lines.push("## Contact", ...facts, "");
+  const services = (copy.services || []).filter((s) => s?.name);
+  if (services.length) lines.push("## Services", ...services.map((s) => `- ${clean(s.name)}${s.description ? `: ${clean(s.description)}` : ""}`), "");
+  const hours = (copy.hours || []).filter(Boolean);
+  if (hours.length) lines.push("## Hours", ...hours.map((h) => `- ${clean(h)}`), "");
+  const faqs = (copy.faqs || []).filter((f) => f?.q && f?.a);
+  if (faqs.length) lines.push("## Common questions", ...faqs.flatMap((f) => [`### ${clean(f.q)}`, clean(f.a), ""]));
+  return lines.join("\n").trim() + "\n";
 }
 
 // Sends the quote form to Vantry, which emails the owner. On previews it explains instead.

@@ -327,6 +327,9 @@ check(live.status === 200 && liveHtml.includes(`data-site="${orderId1}"`) && !li
 check(liveHtml.includes("Website by <a href=\"https://vantryai.com/?ref=site\""), "live sites carry a small 'Website by Vantry' link");
 check(liveHtml.includes('"@type":"LocalBusiness"') && liveHtml.includes('rel="canonical" href="https://www.greenridgelawn.com/"'), "live site has Google business info");
 check((await (await call("/robots.txt", {}, "https://www.greenridgelawn.com")).text()).includes("sitemap.xml"), "robots.txt and sitemap for Google");
+check(liveHtml.includes('"@type":"OfferCatalog"') && liveHtml.includes('"@type":"Service"'), "live site lists its services for AI assistants");
+const llms = await (await call("/llms.txt", {}, "https://www.greenridgelawn.com")).text();
+check(llms.startsWith("# ") && llms.includes("## Services") && llms.includes("https://www.greenridgelawn.com/"), "live site has an AI-readable summary at /llms.txt");
 
 const leadOk = await postJson("/api/lead", { siteId: orderId1, name: "Sam", contact: "sam@example.com", details: "Weekly mowing" });
 check(leadOk.status === 200 && leadOk.headers.get("Access-Control-Allow-Origin") === "*", "quote form accepted from the customer's domain");

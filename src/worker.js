@@ -17,7 +17,7 @@
 //
 // Settings are listed in wrangler.toml and README.md.
 import { buildSystemPrompt, buildUserPrompt, qualityIssues } from "./prompt.js";
-import { renderSite } from "./render.js";
+import { renderSite, aiSummary } from "./render.js";
 import { json, html, httpError, randomId, readJson, clientIp, rateLimit, safeEqual } from "./lib/util.js";
 import { getPreview, putPreview, getOrder, saveOrder, getSite, getHostSiteId, normalizeHost, addLead, listOrders, listPending } from "./lib/store.js";
 import { cleanDomain, isValidDomain, searchToDomain, suggestDomains, SELL_TLDS, tldOf } from "./lib/domains.js";
@@ -425,6 +425,9 @@ async function serveHostedSite(host, url, env, req) {
 
   if (url.pathname === "/robots.txt") {
     return new Response(`User-agent: *\nAllow: /\nSitemap: https://www.${bare}/sitemap.xml\n`, { headers: { "Content-Type": "text/plain" } });
+  }
+  if (url.pathname === "/llms.txt") {
+    return new Response(aiSummary(site.copy, site.input, bare), { headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "public, max-age=3600" } });
   }
   if (url.pathname === "/sitemap.xml") {
     const xml = `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>https://www.${bare}/</loc></url></urlset>`;

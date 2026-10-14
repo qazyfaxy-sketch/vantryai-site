@@ -63,7 +63,7 @@ Quick rundown of what you get with your ${name} site:
 - Your own web address (included)
 - A quote form that sends requests straight to your email
 - Call and text buttons for phones
-- Set up so Google can find you
+- Set up so Google and ChatGPT can find you
 - An easy editor: change words and photos any time, or just tell the AI what to change
 - A simple dashboard showing visits, calls and quote requests
 
@@ -78,7 +78,9 @@ See your designs: ${link("modern")}`,
 If something about your preview wasn't quite right (the wording, the colors, a service that's missing), just reply and tell me. Once you're live, you can also change anything yourself in a minute.
 
 Your designs: ${link("modern")}
-Ready to go live: ${go}`,
+Ready to go live: ${go}
+
+One quick question while I have you: would you pay $19/month for an automatic text that goes out when you miss a call, so the customer doesn't call someone else? Just reply "yes" or "no". It really helps.`,
     },
     {
       subject: `Your ${name} preview is saved for about 2 more weeks`,
