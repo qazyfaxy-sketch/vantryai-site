@@ -41,7 +41,7 @@ import { runMonthlyReports } from "./lib/reports.js";
 import { startNurture, runNurture, unsubscribe } from "./lib/nurture.js";
 import { plusOn, plusView, onPlusStarted, onPlusEnded, onLead, chat, siteForNumber, onMissedCall, onIncomingText, settingsOf, bump } from "./plus.js";
 import { verifyTwilio, twiml, say, dial, toE164 } from "./lib/twilio.js";
-import { isAiPath, aiRoute, aiAdmin, onAiStarted, onAiEnded, onInvoiceUpcoming } from "./ai.js";
+import { isAiPath, aiRoute, aiAdmin, onAiStarted, onAiEnded, onInvoiceUpcoming, runClientDelivery } from "./ai.js";
 
 const MAX_PREVIEWS_PER_EMAIL = 2;
 const MAX_PREVIEWS_PER_IP_HOUR = 6;
@@ -76,6 +76,7 @@ export default {
     ctx.waitUntil(runImageJobs(env).catch((e) => console.log("Image jobs failed", e.message)));
     ctx.waitUntil(runNurture(env).catch((e) => console.log("Follow-ups failed", e.message)));
     ctx.waitUntil(runMonthlyReports(env).catch((e) => console.log("Monthly reports failed", e.message)));
+    ctx.waitUntil(runClientDelivery(env).catch((e) => console.log("AI client delivery failed", e.message)));
   },
 };
 

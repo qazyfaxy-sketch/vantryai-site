@@ -67,7 +67,9 @@ Code: `src/ai.js`, `src/lib/aiscan.js`, `src/pages/report.js`.
 3. **Plans:** Starter $149, Growth $497, Pro $997 a month, through Stripe checkout, month to month.
 4. **After payment:** a welcome email with the onboarding link (`/start/:id`, no call), the timeline, the 60-day promise and the refund promise. You get an email too.
 5. **Renewal reminder:** Stripe sends `invoice.upcoming` before each renewal and we email the client the date, the amount and how to cancel.
-6. **Cancel:** set `STRIPE_PORTAL_LINK` for one-click cancel; without it the email says "reply and we'll cancel it the same day".
+6. **Delivery (automatic, on the 10-minute timer):** after onboarding we track the client's own questions plus AI-written ones (Starter 10, Growth 25, Pro 50), run a starting report within a few hours, then a fresh report every 30 days compared with last month. Each report email includes a fix list from a real check of their website (AI crawlers allowed in robots.txt, structured data, llms.txt, pricing and comparison pages, FAQ markup) and the sites AI cited that they're missing from. For Growth and Pro, you also get it as your to-do list. `DELIVERY_BUDGET` (default 12) caps AI calls per timer run.
+7. **60-day promise:** at day 60, if no answer names them that didn't at the start, a one-time 100% Stripe discount is added to their subscription and both of you get an email.
+8. **Cancel:** set `STRIPE_PORTAL_LINK` for one-click cancel; without it the email says "reply and we'll cancel it the same day".
 
 **Your tools:** `https://api.vantryai.com/admin/audits?token=YOUR_ADMIN_TOKEN` runs a report by hand and lists reports and clients.
 

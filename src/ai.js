@@ -16,6 +16,7 @@ import { stripe } from "./lib/stripe.js";
 import { sendEmail } from "./lib/email.js";
 import { reportPage } from "./pages/report.js";
 import { page } from "./pages/shell.js";
+import { queueStart, runDelivery, QUESTION_LIMIT } from "./lib/delivery.js";
 
 export const AI_PLANS = {
   starter: { label: "Starter", cents: 14900, line: "AI visibility tracking + a monthly fix list" },
@@ -145,7 +146,7 @@ export async function getClient(env, id) {
   const raw = /^c[a-z0-9]{11}$/.test(id) ? await env.PREVIEWS.get(clientKey(id)) : null;
   return raw ? JSON.parse(raw) : null;
 }
-async function saveClient(env, c, note) {
+export async function saveClient(env, c, note) {
   if (note) (c.history ||= []).push({ at: Date.now(), note });
   await env.PREVIEWS.put(clientKey(c.id), JSON.stringify(c));
   let index = [];
@@ -155,7 +156,7 @@ async function saveClient(env, c, note) {
     await env.PREVIEWS.put("aiclients:index", JSON.stringify(index.slice(0, 1000)));
   }
 }
-async function listClients(env) {
+export async function listClients(env) {
   let index = [];
   try { index = JSON.parse((await env.PREVIEWS.get("aiclients:index")) || "[]"); } catch {}
   return (await Promise.all(index.slice(0, 100).map((id) => getClient(env, id)))).filter(Boolean);
@@ -209,9 +210,9 @@ First step, about 5 minutes, no call needed. Tell us about your buyers and compe
 ${start}
 
 What happens next:
-- Week 1: we check how AI sees you today and make the first fixes.
-- Day 30: your first monthly report, showing which AI answers name you.
-- Day 60: our promise. If you're not named in at least one new AI answer by then, your next month is free.
+- A few hours after the form: your starting report, on your own buyer questions, plus your first fix list.
+- Every 30 days: a fresh report showing what changed, and what we're fixing next.
+- Day 60: our promise. If you're not named in at least one new AI answer by then, your next month is free, automatically.
 
 Not happy in your first month? Reply and we'll refund it, no questions.
 We'll also email you 3 days before every renewal. ${cancelText(env)}
@@ -258,7 +259,7 @@ function welcomePage(c) {
 <h1>${c.status === "active" ? "You're in." : "Almost there."}</h1>
 <p class="lede">${c.status === "active" ? "Thanks for joining Vantry AI Visibility." : "Your payment is going through. This page updates in a minute."}</p>
 <div class="card"><h2>One quick step, about 5 minutes</h2><p class="muted">Tell us about your buyers and competitors so we ask AI the right questions. No call needed.</p><a class="jelly" href="${start}">Fill in the short form</a></div>
-<div class="card"><h2>What happens next</h2><p><strong>Week 1:</strong> we check how AI sees you today and make the first fixes.<br><strong>Day 30:</strong> your first monthly report.<br><strong>Day 60:</strong> if you're not named in at least one new AI answer, your next month is free.</p></div>
+<div class="card"><h2>What happens next</h2><p><strong>A few hours after the form:</strong> your starting report and first fix list.<br><strong>Every 30 days:</strong> a fresh report showing what changed.<br><strong>Day 60:</strong> if you're not named in at least one new AI answer, your next month is free, automatically.</p></div>
 </main>`;
   return page({ title: "Welcome", body });
 }
@@ -266,6 +267,7 @@ function welcomePage(c) {
 // ---------------- Onboarding (no call) ----------------
 
 const FIELDS = [
+  ["business", "Company name", "text"],
   ["website", "Your website", "text"],
   ["sell", "What you sell, in one sentence", "text"],
   ["buyers", "Who your best customers are", "textarea"],
@@ -283,9 +285,10 @@ async function onboarding(req, env, id) {
     if (form.get("company")) return html(page({ title: "Thanks", body: "<main><h1>Thanks!</h1></main>" }));
     c.onboarding = Object.fromEntries(FIELDS.map(([k]) => [k, String(form.get(k) || "").trim().slice(0, 1500)]));
     c.onboardedAt = Date.now();
+    if (!c.job && !(c.audits || []).length) await queueStart(env, c); // starting report runs on the next cron ticks
     await saveClient(env, c, "Onboarding form filled in");
     await sendEmail(env, { to: env.OWNER_EMAIL, subject: `Onboarding done: ${c.onboarding.website || c.email}`, text: FIELDS.map(([k, label]) => `${label}:\n${c.onboarding[k] || "-"}`).join("\n\n") });
-    return html(page({ title: "Got it", body: `<main><h1>Got it. We're on it.</h1><p class="lede">We'll start your first fixes this week, and your first report arrives around day 30. Questions any time: just reply to any of our emails.</p></main>` }));
+    return html(page({ title: "Got it", body: `<main><h1>Got it. We're on it.</h1><p class="lede">Your starting report, on ${c.questions?.length || "your"} buyer questions, arrives by email within a few hours. Then you get a fresh report every month, with what changed and what we're fixing. Questions any time: just reply to any of our emails.</p></main>` }));
   }
   const v = c.onboarding || {};
   const inputs = FIELDS.map(([k, label, type]) => `<label class="f"><span>${esc(label)}</span>${type === "textarea" ? `<textarea name="${k}" rows="3">${esc(v[k] || "")}</textarea>` : `<input type="text" name="${k}" value="${esc(v[k] || (k === "reportEmail" ? c.email : ""))}">`}</label>`).join("");
@@ -322,7 +325,7 @@ ${flash ? `<p class="card ok"><strong>${esc(flash)}</strong></p>` : ""}
 <label>What they sell<input type="text" name="category" required placeholder="scheduling software for dental offices"></label><label>Who buys it<input type="text" name="audience" placeholder="small dental practices"></label></div>
 <label>Questions (optional, one per line; leave empty and AI writes 3)<textarea name="questions" rows="3"></textarea></label>
 <button class="jelly sm">Run report</button></form>
-<div class="card"><h2>Clients</h2>${clients.length ? `<table><tr><th>Email</th><th>Plan</th><th>Status</th><th>Onboarding</th></tr>${clients.map((c) => `<tr><td>${esc(c.email || "-")}</td><td>${esc(AI_PLANS[c.plan]?.label || c.plan)}</td><td>${esc(c.status)}</td><td>${c.onboardedAt ? "Done" : `<a href="/start/${c.id}">Link</a>`}</td></tr>`).join("")}</table>` : '<p class="muted">No clients yet.</p>'}</div>
+<div class="card"><h2>Clients</h2>${clients.length ? `<table><tr><th>Email</th><th>Plan</th><th>Status</th><th>Onboarding</th><th>Latest report</th></tr>${clients.map((c) => { const a = (c.audits || []).slice(-1)[0]; return `<tr><td>${esc(c.email || "-")}</td><td>${esc(AI_PLANS[c.plan]?.label || c.plan)}</td><td>${esc(c.status)}</td><td>${c.onboardedAt ? "Done" : `<a href="/start/${c.id}">Link</a>`}</td><td>${c.job ? `Checking: ${c.job.next} of ${c.job.pairs.length}` : a ? `<a href="/r/${a.id}" target="_blank" rel="noopener">${a.mentioned}/${a.total}</a>` : "-"}${c.promise ? `<br><span class="small muted">60-day: ${c.promise.kept ? "kept" : c.promise.freeMonth ? "free month given" : "needs you"}</span>` : ""}</td></tr>`; }).join("")}</table>` : '<p class="muted">No clients yet.</p>'}</div>
 <div class="card"><h2>Recent reports</h2>${audits.length ? `<table><tr><th>Business</th><th>Named</th><th>From</th><th>When</th></tr>${audits.slice(0, 60).map((a) => `<tr><td><a href="/r/${a.id}" target="_blank" rel="noopener">${esc(a.name)}</a>${a.email ? `<br><span class="small muted">${esc(a.email)}</span>` : ""}</td><td>${esc(a.score)}</td><td>${esc(a.origin)}</td><td class="small">${new Date(a.at).toLocaleString("en-US", { timeZone: "America/New_York" })}</td></tr>`).join("")}</table>` : '<p class="muted">No reports yet.</p>'}</div>
 <p><a href="/admin?token=${t}">Back to website orders</a></p>
 </main>
@@ -330,3 +333,6 @@ ${flash ? `<p class="card ok"><strong>${esc(flash)}</strong></p>` : ""}
 table{border-collapse:collapse;width:100%;font-size:14px}th{text-align:left;font-size:12px;color:var(--muted);padding:8px}td{padding:10px 8px;border-top:1px solid var(--line);vertical-align:top}</style>`;
   return html(page({ title: "AI visibility", body }), 200, { "Cache-Control": "no-store", "X-Robots-Tag": "noindex" });
 }
+
+// Cron: starting reports, monthly reports, fix lists and the 60-day promise.
+export const runClientDelivery = (env) => runDelivery(env, { listClients, saveClient });

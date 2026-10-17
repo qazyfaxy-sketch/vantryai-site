@@ -211,19 +211,27 @@ export async function runAudit(env, input, { questions, questionCount = 3, engin
   const brand = brandTerms(company.name, company.website);
 
   const jobs = qs.flatMap((q) => use.map((engine) => ({ q, engine })));
-  const results = await pool(jobs, 4, async ({ q, engine }) => {
-    try {
-      const { text, sources } = await ASK[engine](env, q);
-      const uniq = [...new Map(sources.filter((s) => s.domain).map((s) => [s.domain, s])).values()].slice(0, 8);
-      return { q, engine, text: String(text || "").slice(0, 4000), sources: uniq, mentioned: isNamed(text, brand), cited: isCited(uniq, brand), named: [] };
-    } catch (e) {
-      console.log(`Audit ${engine} failed`, e.message);
-      return { q, engine, text: "", sources: [], mentioned: false, cited: false, named: [], error: "This AI didn't answer this time." };
-    }
-  });
-  await extractNamed(env, results.filter((r) => r.text), company);
+  const results = await pool(jobs, 4, ({ q, engine }) => askOne(env, engine, q, brand));
+  return finishAudit(env, { company, questions: qs, engines: use, results, origin, email });
+}
 
-  const audit = { id: `a${randomId(11)}`, createdAt: Date.now(), company, questions: qs, engines: use, results, summary: summarize(results, use), origin, email: String(email || "").slice(0, 120) };
+// One question to one engine, never throws (a failed engine becomes an "error" row).
+export async function askOne(env, engine, q, brand) {
+  try {
+    const { text, sources } = await ASK[engine](env, q);
+    const uniq = [...new Map(sources.filter((s) => s.domain).map((s) => [s.domain, s])).values()].slice(0, 8);
+    return { q, engine, text: String(text || "").slice(0, 4000), sources: uniq, mentioned: isNamed(text, brand), cited: isCited(uniq, brand), named: [] };
+  } catch (e) {
+    console.log(`Audit ${engine} failed`, e.message);
+    return { q, engine, text: "", sources: [], mentioned: false, cited: false, named: [], error: "This AI didn't answer this time." };
+  }
+}
+
+// Lists who each answer named (in chunks), then saves the audit.
+export async function finishAudit(env, { company, questions, engines, results, origin = "admin", email = "" }) {
+  const answered = results.filter((r) => r.text);
+  for (let i = 0; i < answered.length; i += 20) await extractNamed(env, answered.slice(i, i + 20), company);
+  const audit = { id: `a${randomId(11)}`, createdAt: Date.now(), company, questions, engines, results, summary: summarize(results, engines), origin, email: String(email || "").slice(0, 120) };
   await saveAudit(env, audit);
   return audit;
 }

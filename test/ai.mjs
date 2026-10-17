@@ -2,6 +2,8 @@
 // Run: node test/ai.mjs
 import worker from "../src/worker.js";
 import { brandTerms, isNamed, isCited, summarize } from "../src/lib/aiscan.js";
+import { blockedBots, fixList } from "../src/lib/delivery.js";
+import { runClientDelivery } from "../src/ai.js";
 import { signPayload } from "../src/lib/stripe.js";
 
 let ok = true;
@@ -29,10 +31,16 @@ check(sum.total === 2 && sum.mentioned === 1, "summary skips failed answers");
 check(sum.competitors[0].name === "Weave" && sum.competitors[0].count === 2, "competitors are counted");
 check(sum.sources[0].name === "g2.com", "sources are counted");
 
+check(JSON.stringify(blockedBots("User-agent: GPTBot\nDisallow: /\n")) === '["GPTBot"]', "robots.txt: a blocked AI crawler is found");
+check(blockedBots("User-agent: *\nDisallow: /\n").length === 6, "robots.txt: blocking everyone blocks every AI crawler");
+check(blockedBots("User-agent: *\nDisallow: /admin\n").length === 0, "robots.txt: blocking one folder isn't blocking AI");
+check(fixList({ reachable: true, blocked: ["GPTBot"], schema: false, llms: false, comparison: true, pricing: true, faqSchema: true, description: true }, { company: { website: "x.com" }, summary: { sources: [] }, results: [] })[0].title.includes("GPTBot"), "fix list puts blocked AI crawlers first");
+
 // ---------- fake services ----------
 const emails = [];
 const stripeCalls = [];
 let geminiDown = false;
+let chatgptNamesUs = false;
 const calls = [];
 const ok200 = (obj) => new Response(JSON.stringify(obj), { status: 200, headers: { "Content-Type": "application/json" } });
 const ANSWER = "For dental offices, the most recommended options are Weave, Dentrix Ascend and NexHealth. Many small practices also like Chairside.";
@@ -51,7 +59,13 @@ globalThis.fetch = async (input, opts = {}) => {
     }
   }
   if (url.host === "api.openai.com" && url.pathname === "/v1/responses") {
-    return ok200({ output: [{ type: "web_search_call" }, { type: "message", content: [{ type: "output_text", text: "Weave and NexHealth are the usual picks for dental scheduling.", annotations: [{ type: "url_citation", url: "https://www.reddit.com/r/Dentistry/x", title: "Reddit" }] }] }] });
+    const t = chatgptNamesUs ? "Weave, NexHealth and Chairside Scheduling are the usual picks for dental scheduling." : "Weave and NexHealth are the usual picks for dental scheduling.";
+    return ok200({ output: [{ type: "web_search_call" }, { type: "message", content: [{ type: "output_text", text: t, annotations: [{ type: "url_citation", url: "https://www.reddit.com/r/Dentistry/x", title: "Reddit" }] }] }] });
+  }
+  if (url.host === "chairside.io") {
+    if (url.pathname === "/robots.txt") return new Response("User-agent: *\nAllow: /\n\nUser-agent: GPTBot\nDisallow: /\n", { status: 200 });
+    if (url.pathname === "/llms.txt") return new Response("Not found", { status: 404 });
+    return new Response('<html><head><title>Chairside</title></head><body><a href="/pricing">Pricing</a></body></html>', { status: 200 });
   }
   if (url.host === "api.perplexity.ai") return ok200({ choices: [{ message: { content: ANSWER } }], search_results: [{ url: "https://www.g2.com/categories/dental", title: "G2" }] });
   if (url.host === "generativelanguage.googleapis.com") {
@@ -207,11 +221,69 @@ check(emails.length === 0, "website customers don't get AI plan reminders");
 const of = await (await call(`/start/${clientId}`)).text();
 check(of.includes("Tell us about your business") && of.includes("owner@chairside.io"), "onboarding form loads with their email filled in");
 emails.length = 0;
-const op = await call(`/start/${clientId}`, form({ website: "chairside.io", sell: "Scheduling for dentists", buyers: "2-5 dentist practices", competitors: "Weave, NexHealth", questions: "Does it text patients?", avoid: "", reportEmail: "owner@chairside.io" }));
+const op = await call(`/start/${clientId}`, form({ business: "Chairside Scheduling", website: "chairside.io", sell: "Scheduling for dentists", buyers: "2-5 dentist practices", competitors: "Weave, NexHealth", questions: "Does it text patients?\nBest dental scheduling app", avoid: "", reportEmail: "owner@chairside.io" }));
 check(op.status === 200 && (await op.text()).includes("We're on it"), "onboarding form submits");
 check(JSON.parse(store.get(`aic:${clientId}`)).onboarding.competitors === "Weave, NexHealth", "onboarding answers are saved");
 check(emails.some((e) => e.to[0] === env.OWNER_EMAIL && e.text.includes("Weave, NexHealth")), "you get the onboarding answers by email");
 check((await call("/start/c00000000000")).status === 404, "unknown onboarding link is a 404");
+
+// ---------- delivery: starting report, monthly report, fix list, 60-day promise ----------
+const cl = () => JSON.parse(store.get(`aic:${clientId}`));
+const tick = async () => { await runClientDelivery(env); };
+let c1 = cl();
+check(c1.questions.length === 4 && c1.questions[0] === "Does it text patients?" && c1.questions[1] === "Best dental scheduling app?", "tracked questions start with the client's own questions");
+check(c1.questions.length <= 25 && !c1.questions.some((q) => /chairside/i.test(q)), "AI fills the rest (Growth allows 25) and never uses their own name");
+check(c1.job && c1.job.pairs.length === 16 && c1.job.kind === "baseline", "the starting report is queued (questions x engines)");
+emails.length = 0;
+env.DELIVERY_BUDGET = "5";
+await tick();
+c1 = cl();
+check(c1.job.next === 5 && !(c1.audits || []).length, "big checks run in small pieces on the timer");
+await tick(); await tick(); await tick();
+c1 = cl();
+check(!c1.job && c1.audits.length === 1 && c1.audits[0].kind === "baseline", "the starting report finishes over a few timer runs");
+const startMail = emails.find((e) => e.to[0] === "owner@chairside.io");
+check(startMail && startMail.subject.startsWith("Your starting AI visibility report") && startMail.text.includes("/r/a"), "the client gets their starting report by email");
+check(startMail.text.includes("GPTBot") && startMail.text.includes("llms.txt") && startMail.text.includes("structured data"), "the fix list comes from a real check of their website");
+check(!startMail.text.includes("pricing page"), "fixes they already have (a pricing page) aren't listed");
+check(startMail.text.includes("What we're working on this month"), "Growth clients see it as work we're doing for them");
+check(emails.some((e) => e.to[0] === env.OWNER_EMAIL && e.subject.startsWith("To do:")), "you get the to-do list for done-for-you clients");
+emails.length = 0;
+await tick();
+check(emails.length === 0 && !cl().job, "nothing runs again until a month has passed");
+
+// a month later, ChatGPT starts naming them
+let cc = cl(); cc.audits[0].at -= 31 * 86400000; store.set(`aic:${clientId}`, JSON.stringify(cc));
+chatgptNamesUs = true;
+env.DELIVERY_BUDGET = "20";
+await tick();
+cc = cl();
+check(cc.audits.length === 2 && cc.audits[1].kind === "monthly", "a fresh report runs every 30 days");
+const monthMail = emails.find((e) => e.to[0] === "owner@chairside.io");
+check(monthMail && monthMail.text.includes("last month:") && monthMail.text.includes("New this month") && monthMail.text.includes("(ChatGPT)"), "the monthly email compares with last month and lists new answers");
+
+// 60-day promise: kept, because new answers appeared
+cc.startedAt -= 61 * 86400000; store.set(`aic:${clientId}`, JSON.stringify(cc));
+const stripeBefore = stripeCalls.length;
+await tick();
+check(cl().promise && cl().promise.kept === true && stripeCalls.length === stripeBefore, "60-day promise: kept when new answers appeared, no free month needed");
+
+// 60-day promise: a client with no new answers gets a free month
+const c2 = { ...cl(), id: "c2xxxxxxxxxx", promise: undefined, stripe: { subscription: "sub_2" }, audits: [] };
+c2.audits = [{ ...cl().audits[0], at: Date.now() - 2 * 86400000 }, { ...cl().audits[0], kind: "monthly", at: Date.now() - 86400000 }];
+store.set(`aic:${c2.id}`, JSON.stringify(c2));
+store.set("aiclients:index", JSON.stringify([c2.id, clientId]));
+emails.length = 0;
+await tick();
+const c2s = JSON.parse(store.get(`aic:${c2.id}`));
+const sub = stripeCalls.find((x) => x.path === "/v1/subscriptions/sub_2");
+check(c2s.promise && c2s.promise.kept === false && c2s.promise.freeMonth === true, "60-day promise: no new answers means the next month is made free");
+check(stripeCalls.some((x) => x.path === "/v1/coupons" && x.params.get("percent_off") === "100" && x.params.get("duration") === "once") && sub && sub.params.get("discounts[0][coupon]"), "the free month is a one-time 100% Stripe discount on their subscription");
+check(emails.some((e) => e.subject === "Your next month is on us") && emails.some((e) => e.subject.startsWith("Applied: 60-day promise")), "client and you both hear about the free month");
+await tick();
+check(stripeCalls.filter((x) => x.path === "/v1/subscriptions/sub_2").length === 1, "the free month is given only once");
+await worker.scheduled({}, env, ctx); await Promise.all(ctx.waits.splice(0));
+check(true, "the cron runs client delivery without errors");
 
 // ---------- cancel ----------
 emails.length = 0;
