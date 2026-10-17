@@ -22,6 +22,7 @@ import { isListingsPath, listingsRoute, listingsAdmin, listingsCard, runListings
 import { isOutreachPath, outreachRoute, outreachAdmin, outreachCard, runOutreach } from "./lib/outreach.js";
 import { isRedditPath, redditRoute, redditAdmin, redditCard, runReddit } from "./lib/reddit.js";
 import { isDashPath, dashRoute, dashUrl, dashCard } from "./lib/dashboard.js";
+import { isReviewsPath, reviewsRoute, runReviews } from "./lib/reviews.js";
 import { isSitePath, siteRoute, siteAdmin, siteCard, runSiteWork, PAGES_PER_MONTH } from "./lib/sitefix.js";
 
 export const AI_PLANS = {
@@ -44,7 +45,7 @@ const cancelText = (env) =>
 const sign = "Thanks,\nVince\nVantry · vantryai.com";
 
 export function isAiPath(p) {
-  return isVideoPath(p) || isSitePath(p) || isListingsPath(p) || isOutreachPath(p) || isRedditPath(p) || isDashPath(p) || p === "/api/report" || p === "/api/audit/batch" || p === "/api/ai/checkout" || /^\/r\/a[a-z0-9]{11}$/.test(p) || /^\/ai\/welcome\/c[a-z0-9]{11}$/.test(p) || /^\/start\/c[a-z0-9]{11}$/.test(p);
+  return isVideoPath(p) || isSitePath(p) || isListingsPath(p) || isOutreachPath(p) || isRedditPath(p) || isDashPath(p) || isReviewsPath(p) || p === "/api/report" || p === "/api/audit/batch" || p === "/api/ai/checkout" || /^\/r\/a[a-z0-9]{11}$/.test(p) || /^\/ai\/welcome\/c[a-z0-9]{11}$/.test(p) || /^\/start\/c[a-z0-9]{11}$/.test(p);
 }
 
 export async function aiRoute(req, url, env, cors) {
@@ -56,6 +57,7 @@ export async function aiRoute(req, url, env, cors) {
   if (isOutreachPath(p)) return await outreachRoute(req, url, env, { getClient, saveClient });
   if (isRedditPath(p)) return await redditRoute(req, url, env, { getClient, saveClient });
   if (isDashPath(p)) return await dashRoute(req, url, env, { getClient });
+  if (isReviewsPath(p)) return await reviewsRoute(req, url, env, { getClient, saveClient });
   if (req.method === "POST" && p === "/api/report") return json(await freeReport(req, env, url), 200, cors);
   if (req.method === "POST" && p === "/api/audit/batch") return json(await batch(req, env, url));
   if (req.method === "POST" && p === "/api/ai/checkout") return json(await checkout(req, env, url), 200, cors);
@@ -379,6 +381,7 @@ export const runClientDelivery = (env) => runDelivery(env, { listClients, saveCl
 // Cron: YouTube videos for Growth and Pro clients.
 export const runClientVideos = (env) => runVideos(env, { listClients, saveClient });
 // Cron: website pages, schema and llms.txt for Growth and Pro clients.
+export const runClientReviews = (env) => runReviews(env, { listClients, saveClient });
 export const runClientReddit = (env) => runReddit(env, { listClients, saveClient });
 export const runClientOutreach = (env) => runOutreach(env, { listClients, saveClient });
 export const runClientListings = (env) => runListings(env, { listClients, saveClient });

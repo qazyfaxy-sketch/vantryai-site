@@ -133,6 +133,16 @@ It never posts, never uses accounts, never asks for upvotes, and drafts at most 
 
 Every report email now links the client's private dashboard at `/d/<clientId>?k=...` (a signed link, no password to forget). It shows the score by report, a question-by-question "then and now" from the saved answers (newly named, no longer named, never estimated), and what we did: live pages, live videos, listings, Reddit answers posted and notes sent. It says plainly that AI answers vary and nothing is promised. You can open any client's dashboard from the admin page. Test: `node test/dashboard.mjs`.
 
+## Review requests (no setup needed)
+
+For Growth and Pro clients. Honest reviews from real customers make a profile worth trusting, but reviews can't be faked, bought, gated or written for people. So the engine only gives the client a kit, and the **client sends the requests from their own email**:
+
+- Once a review-site or directory profile from the listings engine is live, the client gets one email with a link to `/reviews/<clientId>`.
+- The page shows where customers can review them (their live profiles, plus a review link they add, such as a Google review link), the four safety rules, and three fixed wordings (never AI-written) that ask for an honest review, "good or bad", the same way for every customer.
+- They paste the customers they want to ask. The page builds one ready-to-send `mailto:` email per person **in the browser**. We never see or store customer names or emails.
+
+Never: writes or posts reviews, sends to customers for the client, offers incentives, or asks only happy customers. `REVIEWS_OFF="true"` stops the kit emails. Test: `node test/reviews.mjs`.
+
 ## Videos: one-time setup (about 30 minutes)
 
 1. **A YouTube channel for Vantry.** In YouTube, create a channel for your first category, e.g. "Dental Software Guide". Verify it with your phone (youtube.com/verify) so custom thumbnails work.

@@ -41,7 +41,7 @@ import { runMonthlyReports } from "./lib/reports.js";
 import { startNurture, runNurture, unsubscribe } from "./lib/nurture.js";
 import { plusOn, plusView, onPlusStarted, onPlusEnded, onLead, chat, siteForNumber, onMissedCall, onIncomingText, settingsOf, bump } from "./plus.js";
 import { verifyTwilio, twiml, say, dial, toE164 } from "./lib/twilio.js";
-import { isAiPath, aiRoute, aiAdmin, onAiStarted, onAiEnded, onInvoiceUpcoming, runClientDelivery, runClientVideos, runClientSite, runClientListings, runClientOutreach, runClientReddit, getClient } from "./ai.js";
+import { isAiPath, aiRoute, aiAdmin, onAiStarted, onAiEnded, onInvoiceUpcoming, runClientDelivery, runClientVideos, runClientSite, runClientListings, runClientOutreach, runClientReddit, runClientReviews, getClient } from "./ai.js";
 import { hubFor, serveHub } from "./lib/sitefix.js";
 
 const MAX_PREVIEWS_PER_EMAIL = 2;
@@ -84,6 +84,7 @@ export default {
     ctx.waitUntil(runClientListings(env).catch((e) => console.log("Client listings failed", e.message)));
     ctx.waitUntil(runClientOutreach(env).catch((e) => console.log("Client outreach failed", e.message)));
     ctx.waitUntil(runClientReddit(env).catch((e) => console.log("Client reddit failed", e.message)));
+    ctx.waitUntil(runClientReviews(env).catch((e) => console.log("Client reviews failed", e.message)));
   },
 };
 
