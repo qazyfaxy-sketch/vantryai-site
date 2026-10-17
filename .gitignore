@@ -3,3 +3,4 @@ test/out/
 showcase/sites/
 .wrangler/
 .dev.vars
+__pycache__/
