@@ -67,6 +67,11 @@ SITE_BUDGET = "1"            # pages written per 10-minute timer run
 # Listing kits for Growth and Pro clients (see README).
 LISTINGS_AUTO_PUBLISH = "false" # "true" sends kits to clients without waiting for your Approve click
 LISTINGS_BUDGET = "1"           # clients worked on per 10-minute timer run
+# Article outreach for Growth and Pro clients (see README). Sending stays OFF until you set OUTREACH_FROM.
+OUTREACH_FROM = ""              # e.g. "Vince at Vantry <vince@usevantry.com>". Must be a separate domain, never vantryai.com
+OUTREACH_NAME = "Vince at Vantry"
+OUTREACH_DAILY = "5"            # emails per day across all clients (raise slowly while the new domain warms up)
+OUTREACH_BUDGET = "1"           # clients worked on per 10-minute timer run
 
 # Secrets: never put these in this file. Add each one with
 #   npx wrangler secret put NAME

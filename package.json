@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node test/run.mjs && node test/ai.mjs && node test/video.mjs && node test/site.mjs && node test/listings.mjs",
+    "test": "node test/run.mjs && node test/ai.mjs && node test/video.mjs && node test/site.mjs && node test/listings.mjs && node test/outreach.mjs",
     "deploy": "wrangler deploy",
     "showcase": "node showcase/build.mjs"
   }

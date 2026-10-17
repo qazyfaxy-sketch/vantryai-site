@@ -63,7 +63,7 @@ export async function getBatch(env, id) {
 }
 const saveBatch = (env, b) => env.PREVIEWS.put(lstKey(b.id), JSON.stringify(b));
 
-async function hmac(env, msg) {
+export async function hmac(env, msg) {
   const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(env.VIDEO_SECRET || env.ADMIN_TOKEN || "x"), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
   const sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(msg));
   return [...new Uint8Array(sig)].map((b) => b.toString(16).padStart(2, "0")).join("").slice(0, 32);

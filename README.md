@@ -105,6 +105,19 @@ Never: makes accounts, solves CAPTCHAs, writes or requests reviews, or promises 
 
 Settings in `wrangler.toml`: `LISTINGS_AUTO_PUBLISH` ("true" skips your review), `LISTINGS_BUDGET`, and `LISTINGS_OFF="true"` to stop it. Test: `node test/listings.mjs`.
 
+## Article outreach (sending stays off until you set it up)
+
+For Growth (up to 3 notes a month) and Pro (up to 6) clients. AI often repeats a "best X" article, so this finds those articles and writes one short, honest note to the writer.
+
+1. Takes the articles from the sites AI cited (the listings engine labels them, so it needs a listings search first).
+2. Loads the article and looks for the writer's name and an email the site itself shows (a mailto link on the article, author page or contact page, on the same site). **It never guesses an email.** No email found means "manual": you get the contact page link and send it by hand.
+3. Writes the note from the client's website only, fact-checks it, strips overclaims, and throws it away if it mentions money, payment, commission or free items.
+4. Emails you a review page (approve, redo with a note, skip). **Nothing is ever sent without your approval.**
+5. Sends only if all three are set: `OUTREACH_FROM` on a separate domain (never vantryai.com, the engine refuses), `MAILING_ADDRESS`, and the email key. Every email has your mailing address, a one-click opt-out link and unsubscribe headers. Opted-out addresses are never emailed again. Up to `OUTREACH_DAILY` emails a day (default 5, raise slowly while the new domain warms up).
+6. One follow-up a week later, also approved by you. "Got a reply" stops it.
+
+If sending isn't set up, an approved note is shown for you to copy and send yourself. Replies go to `OUTREACH_REPLY_TO` or your owner email. Settings in `wrangler.toml`; `OUTREACH_OFF="true"` stops it. Test: `node test/outreach.mjs`.
+
 ## Videos: one-time setup (about 30 minutes)
 
 1. **A YouTube channel for Vantry.** In YouTube, create a channel for your first category, e.g. "Dental Software Guide". Verify it with your phone (youtube.com/verify) so custom thumbnails work.
