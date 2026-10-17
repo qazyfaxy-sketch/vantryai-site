@@ -143,6 +143,10 @@ For Growth and Pro clients. Honest reviews from real customers make a profile wo
 
 Never: writes or posts reviews, sends to customers for the client, offers incentives, or asks only happy customers. `REVIEWS_OFF="true"` stops the kit emails. Test: `node test/reviews.mjs`.
 
+## Prospects (the customer machine)
+
+Paste companies at `/admin/prospects?token=...` (`Company, website, email, first name, what they sell`; the last two are optional). The timer checks 2 at a time (cap `PROSPECT_AUDITS_PER_DAY`, default 20): drops bad emails (role addresses, no mail server), runs a free AI visibility check, skips companies already named in every answer, and builds one plain email from the real result with fixed wording (no AI free text). Nothing sends until you press **Send**; `PROSPECT_AUTO_SEND="true"` turns on timer sending (off by default). Needs `OUTREACH_FROM` on a separate domain, `RESEND_API_KEY`, `MAILING_ADDRESS`. New domains warm up (5/day, then 10, 20, 40, then `PROSPECT_DAILY`, default 50). One follow-up after 5 days to non-repliers (press the button). Opt-outs and bounces are permanent. Set `RESEND_WEBHOOK_SECRET` and point a Resend webhook (email.bounced, email.complained) at `/api/email/events`; sending pauses by itself above 2% bounces or 0.3% spam complaints and emails you. `PROSPECTS_OFF="true"` stops it.
+
 ## Videos: one-time setup (about 30 minutes)
 
 1. **A YouTube channel for Vantry.** In YouTube, create a channel for your first category, e.g. "Dental Software Guide". Verify it with your phone (youtube.com/verify) so custom thumbnails work.

@@ -41,7 +41,7 @@ import { runMonthlyReports } from "./lib/reports.js";
 import { startNurture, runNurture, unsubscribe } from "./lib/nurture.js";
 import { plusOn, plusView, onPlusStarted, onPlusEnded, onLead, chat, siteForNumber, onMissedCall, onIncomingText, settingsOf, bump } from "./plus.js";
 import { verifyTwilio, twiml, say, dial, toE164 } from "./lib/twilio.js";
-import { isAiPath, aiRoute, aiAdmin, onAiStarted, onAiEnded, onInvoiceUpcoming, runClientDelivery, runClientVideos, runClientSite, runClientListings, runClientOutreach, runClientReddit, runClientReviews, getClient } from "./ai.js";
+import { isAiPath, aiRoute, aiAdmin, onAiStarted, onAiEnded, onInvoiceUpcoming, runClientDelivery, runClientVideos, runClientSite, runClientListings, runClientOutreach, runClientReddit, runClientReviews, runClientProspects, getClient } from "./ai.js";
 import { hubFor, serveHub } from "./lib/sitefix.js";
 
 const MAX_PREVIEWS_PER_EMAIL = 2;
@@ -84,6 +84,7 @@ export default {
     ctx.waitUntil(runClientListings(env).catch((e) => console.log("Client listings failed", e.message)));
     ctx.waitUntil(runClientOutreach(env).catch((e) => console.log("Client outreach failed", e.message)));
     ctx.waitUntil(runClientReddit(env).catch((e) => console.log("Client reddit failed", e.message)));
+    ctx.waitUntil(runClientProspects(env).catch((e) => console.log("Prospects failed", e.message)));
     ctx.waitUntil(runClientReviews(env).catch((e) => console.log("Client reviews failed", e.message)));
   },
 };
@@ -526,7 +527,7 @@ async function admin(req, url, env) {
   }
   if (!safeEqual(token, env.ADMIN_TOKEN)) throw httpError(404, "Page not found.");
   const noStore = { "Cache-Control": "no-store", "X-Robots-Tag": "noindex" };
-  if (url.pathname === "/admin/audits" || url.pathname === "/admin/audit" || url.pathname === "/admin/video" || url.pathname === "/admin/page" || url.pathname === "/admin/listings" || url.pathname === "/admin/outreach" || url.pathname === "/admin/reddit" || url.pathname.startsWith("/admin/youtube")) return await aiAdmin(req, url, env, form, token);
+  if (url.pathname === "/admin/audits" || url.pathname === "/admin/audit" || url.pathname === "/admin/video" || url.pathname === "/admin/page" || url.pathname === "/admin/listings" || url.pathname === "/admin/outreach" || url.pathname === "/admin/reddit" || url.pathname === "/admin/prospects" || url.pathname.startsWith("/admin/youtube")) return await aiAdmin(req, url, env, form, token);
 
   let m;
   if (req.method === "GET" && (m = url.pathname.match(/^\/admin\/site\/(o[a-z0-9]{12})$/))) {
