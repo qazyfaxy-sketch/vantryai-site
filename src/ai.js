@@ -18,6 +18,7 @@ import { reportPage } from "./pages/report.js";
 import { page } from "./pages/shell.js";
 import { queueStart, runDelivery, QUESTION_LIMIT } from "./lib/delivery.js";
 import { isVideoPath, videoRoute, videoAdmin, videoCard, runVideos } from "./lib/video.js";
+import { isSitePath, siteRoute, siteAdmin, siteCard, runSiteWork, PAGES_PER_MONTH } from "./lib/sitefix.js";
 
 export const AI_PLANS = {
   starter: { label: "Starter", cents: 14900, line: "AI visibility tracking + a monthly fix list" },
@@ -39,13 +40,14 @@ const cancelText = (env) =>
 const sign = "Thanks,\nVince\nVantry · vantryai.com";
 
 export function isAiPath(p) {
-  return isVideoPath(p) || p === "/api/report" || p === "/api/audit/batch" || p === "/api/ai/checkout" || /^\/r\/a[a-z0-9]{11}$/.test(p) || /^\/ai\/welcome\/c[a-z0-9]{11}$/.test(p) || /^\/start\/c[a-z0-9]{11}$/.test(p);
+  return isVideoPath(p) || isSitePath(p) || p === "/api/report" || p === "/api/audit/batch" || p === "/api/ai/checkout" || /^\/r\/a[a-z0-9]{11}$/.test(p) || /^\/ai\/welcome\/c[a-z0-9]{11}$/.test(p) || /^\/start\/c[a-z0-9]{11}$/.test(p);
 }
 
 export async function aiRoute(req, url, env, cors) {
   const p = url.pathname;
   let m;
   if (isVideoPath(p)) return await videoRoute(req, url, env, { getClient, saveClient });
+  if (isSitePath(p)) return await siteRoute(req, url, env, { getClient, saveClient });
   if (req.method === "POST" && p === "/api/report") return json(await freeReport(req, env, url), 200, cors);
   if (req.method === "POST" && p === "/api/audit/batch") return json(await batch(req, env, url));
   if (req.method === "POST" && p === "/api/ai/checkout") return json(await checkout(req, env, url), 200, cors);
@@ -289,8 +291,25 @@ async function onboarding(req, env, id) {
     c.onboardedAt = Date.now();
     if (!c.job && !(c.audits || []).length) await queueStart(env, c); // starting report runs on the next cron ticks
     await saveClient(env, c, "Onboarding form filled in");
+    const siteLink = `${env.PUBLIC_API || "https://api.vantryai.com"}/site/${c.id}`;
+    if (PAGES_PER_MONTH[c.plan]) {
+      await sendEmail(env, {
+        to: c.onboarding.reportEmail || c.email,
+        subject: "One optional step: let us publish fixes to your website",
+        text: `Hi,
+
+Thanks for the details. Your starting report is on its way.
+
+Every month we write pages that answer your buyers' questions, plus the code AI tools read, all fact-checked against your own website. Connect your site once (about 2 minutes) and we publish them for you:
+${siteLink}
+
+WordPress: install our small plugin and paste a code. Anything else (Webflow, Wix, Squarespace, Shopify): add one DNS record and we host the pages on a subdomain of your site. Or skip it, and copy each page from that link yourself.
+
+${sign}`,
+      });
+    }
     await sendEmail(env, { to: env.OWNER_EMAIL, subject: `Onboarding done: ${c.onboarding.website || c.email}`, text: FIELDS.map(([k, label]) => `${label}:\n${c.onboarding[k] || "-"}`).join("\n\n") });
-    return html(page({ title: "Got it", body: `<main><h1>Got it. We're on it.</h1><p class="lede">Your starting report, on ${c.questions?.length || "your"} buyer questions, arrives by email within a few hours. Then you get a fresh report every month, with what changed and what we're fixing. Questions any time: just reply to any of our emails.</p></main>` }));
+    return html(page({ title: "Got it", body: `<main><h1>Got it. We're on it.</h1><p class="lede">Your starting report, on ${c.questions?.length || "your"} buyer questions, arrives by email within a few hours. Then you get a fresh report every month, with what changed and what we\'re fixing. Questions any time: just reply to any of our emails.</p>${PAGES_PER_MONTH[c.plan] ? `<div class="card"><h2>Optional, 2 minutes: connect your website</h2><p>So we can publish your fact-checked pages and AI code for you.</p><a class="jelly" href="/site/${c.id}">Connect your website</a></div>` : ""}</main>` }));
   }
   const v = c.onboarding || {};
   const inputs = FIELDS.map(([k, label, type]) => `<label class="f"><span>${esc(label)}</span>${type === "textarea" ? `<textarea name="${k}" rows="3">${esc(v[k] || "")}</textarea>` : `<input type="text" name="${k}" value="${esc(v[k] || (k === "reportEmail" ? c.email : ""))}">`}</label>`).join("");
@@ -304,6 +323,7 @@ async function onboarding(req, env, id) {
 
 export async function aiAdmin(req, url, env, form, token) {
   if (url.pathname.startsWith("/admin/youtube") || url.pathname === "/admin/video") return await videoAdmin(req, url, env, form, token, { getClient, saveClient });
+  if (req.method === "POST" && url.pathname === "/admin/page") return await siteAdmin(req, url, env, form, token, { getClient, saveClient });
   let flash = String(url.searchParams.get("flash") || "").slice(0, 400);
   if (req.method === "POST" && url.pathname === "/admin/audit") {
     try {
@@ -330,6 +350,7 @@ ${flash ? `<p class="card ok"><strong>${esc(flash)}</strong></p>` : ""}
 <button class="jelly sm">Run report</button></form>
 <div class="card"><h2>Clients</h2>${clients.length ? `<table><tr><th>Email</th><th>Plan</th><th>Status</th><th>Onboarding</th><th>Latest report</th></tr>${clients.map((c) => { const a = (c.audits || []).slice(-1)[0]; return `<tr><td>${esc(c.email || "-")}</td><td>${esc(AI_PLANS[c.plan]?.label || c.plan)}</td><td>${esc(c.status)}</td><td>${c.onboardedAt ? "Done" : `<a href="/start/${c.id}">Link</a>`}</td><td>${c.job ? `Checking: ${c.job.next} of ${c.job.pairs.length}` : a ? `<a href="/r/${a.id}" target="_blank" rel="noopener">${a.mentioned}/${a.total}</a>` : "-"}${c.promise ? `<br><span class="small muted">60-day: ${c.promise.kept ? "kept" : c.promise.freeMonth ? "free month given" : "needs you"}</span>` : ""}</td></tr>`; }).join("")}</table>` : '<p class="muted">No clients yet.</p>'}</div>
 ${await videoCard(env, clients, token)}
+${await siteCard(env, clients, token)}
 <div class="card"><h2>Recent reports</h2>${audits.length ? `<table><tr><th>Business</th><th>Named</th><th>From</th><th>When</th></tr>${audits.slice(0, 60).map((a) => `<tr><td><a href="/r/${a.id}" target="_blank" rel="noopener">${esc(a.name)}</a>${a.email ? `<br><span class="small muted">${esc(a.email)}</span>` : ""}</td><td>${esc(a.score)}</td><td>${esc(a.origin)}</td><td class="small">${new Date(a.at).toLocaleString("en-US", { timeZone: "America/New_York" })}</td></tr>`).join("")}</table>` : '<p class="muted">No reports yet.</p>'}</div>
 <p><a href="/admin?token=${t}">Back to website orders</a></p>
 </main>
@@ -342,3 +363,5 @@ table{border-collapse:collapse;width:100%;font-size:14px}th{text-align:left;font
 export const runClientDelivery = (env) => runDelivery(env, { listClients, saveClient });
 // Cron: YouTube videos for Growth and Pro clients.
 export const runClientVideos = (env) => runVideos(env, { listClients, saveClient });
+// Cron: website pages, schema and llms.txt for Growth and Pro clients.
+export const runClientSite = (env) => runSiteWork(env, { listClients, saveClient });
