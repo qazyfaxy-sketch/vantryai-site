@@ -72,6 +72,8 @@ OUTREACH_FROM = ""              # e.g. "Vince at Vantry <vince@usevantry.com>". 
 OUTREACH_NAME = "Vince at Vantry"
 OUTREACH_DAILY = "5"            # emails per day across all clients (raise slowly while the new domain warms up)
 OUTREACH_BUDGET = "1"           # clients worked on per 10-minute timer run
+# Reddit answers for Growth and Pro clients (see README). Nothing posts by itself: the client posts.
+REDDIT_BUDGET = "1"             # clients worked on per 10-minute timer run
 
 # Secrets: never put these in this file. Add each one with
 #   npx wrangler secret put NAME

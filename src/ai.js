@@ -20,6 +20,7 @@ import { queueStart, runDelivery, QUESTION_LIMIT } from "./lib/delivery.js";
 import { isVideoPath, videoRoute, videoAdmin, videoCard, runVideos } from "./lib/video.js";
 import { isListingsPath, listingsRoute, listingsAdmin, listingsCard, runListings } from "./lib/listings.js";
 import { isOutreachPath, outreachRoute, outreachAdmin, outreachCard, runOutreach } from "./lib/outreach.js";
+import { isRedditPath, redditRoute, redditAdmin, redditCard, runReddit } from "./lib/reddit.js";
 import { isSitePath, siteRoute, siteAdmin, siteCard, runSiteWork, PAGES_PER_MONTH } from "./lib/sitefix.js";
 
 export const AI_PLANS = {
@@ -42,7 +43,7 @@ const cancelText = (env) =>
 const sign = "Thanks,\nVince\nVantry · vantryai.com";
 
 export function isAiPath(p) {
-  return isVideoPath(p) || isSitePath(p) || isListingsPath(p) || isOutreachPath(p) || p === "/api/report" || p === "/api/audit/batch" || p === "/api/ai/checkout" || /^\/r\/a[a-z0-9]{11}$/.test(p) || /^\/ai\/welcome\/c[a-z0-9]{11}$/.test(p) || /^\/start\/c[a-z0-9]{11}$/.test(p);
+  return isVideoPath(p) || isSitePath(p) || isListingsPath(p) || isOutreachPath(p) || isRedditPath(p) || p === "/api/report" || p === "/api/audit/batch" || p === "/api/ai/checkout" || /^\/r\/a[a-z0-9]{11}$/.test(p) || /^\/ai\/welcome\/c[a-z0-9]{11}$/.test(p) || /^\/start\/c[a-z0-9]{11}$/.test(p);
 }
 
 export async function aiRoute(req, url, env, cors) {
@@ -52,6 +53,7 @@ export async function aiRoute(req, url, env, cors) {
   if (isSitePath(p)) return await siteRoute(req, url, env, { getClient, saveClient });
   if (isListingsPath(p)) return await listingsRoute(req, url, env, { getClient, saveClient });
   if (isOutreachPath(p)) return await outreachRoute(req, url, env, { getClient, saveClient });
+  if (isRedditPath(p)) return await redditRoute(req, url, env, { getClient, saveClient });
   if (req.method === "POST" && p === "/api/report") return json(await freeReport(req, env, url), 200, cors);
   if (req.method === "POST" && p === "/api/audit/batch") return json(await batch(req, env, url));
   if (req.method === "POST" && p === "/api/ai/checkout") return json(await checkout(req, env, url), 200, cors);
@@ -327,6 +329,7 @@ ${sign}`,
 
 export async function aiAdmin(req, url, env, form, token) {
   if (url.pathname.startsWith("/admin/youtube") || url.pathname === "/admin/video") return await videoAdmin(req, url, env, form, token, { getClient, saveClient });
+  if (req.method === "POST" && url.pathname === "/admin/reddit") return await redditAdmin(req, url, env, form, token, { getClient, saveClient });
   if (req.method === "POST" && url.pathname === "/admin/outreach") return await outreachAdmin(req, url, env, form, token, { getClient, saveClient });
   if (req.method === "POST" && url.pathname === "/admin/listings") return await listingsAdmin(req, url, env, form, token, { getClient, saveClient });
   if (req.method === "POST" && url.pathname === "/admin/page") return await siteAdmin(req, url, env, form, token, { getClient, saveClient });
@@ -359,6 +362,7 @@ ${await videoCard(env, clients, token)}
 ${await siteCard(env, clients, token)}
 ${await listingsCard(env, clients, token)}
 ${await outreachCard(env, clients, token)}
+${await redditCard(env, clients, token)}
 <div class="card"><h2>Recent reports</h2>${audits.length ? `<table><tr><th>Business</th><th>Named</th><th>From</th><th>When</th></tr>${audits.slice(0, 60).map((a) => `<tr><td><a href="/r/${a.id}" target="_blank" rel="noopener">${esc(a.name)}</a>${a.email ? `<br><span class="small muted">${esc(a.email)}</span>` : ""}</td><td>${esc(a.score)}</td><td>${esc(a.origin)}</td><td class="small">${new Date(a.at).toLocaleString("en-US", { timeZone: "America/New_York" })}</td></tr>`).join("")}</table>` : '<p class="muted">No reports yet.</p>'}</div>
 <p><a href="/admin?token=${t}">Back to website orders</a></p>
 </main>
@@ -372,6 +376,7 @@ export const runClientDelivery = (env) => runDelivery(env, { listClients, saveCl
 // Cron: YouTube videos for Growth and Pro clients.
 export const runClientVideos = (env) => runVideos(env, { listClients, saveClient });
 // Cron: website pages, schema and llms.txt for Growth and Pro clients.
+export const runClientReddit = (env) => runReddit(env, { listClients, saveClient });
 export const runClientOutreach = (env) => runOutreach(env, { listClients, saveClient });
 export const runClientListings = (env) => runListings(env, { listClients, saveClient });
 export const runClientSite = (env) => runSiteWork(env, { listClients, saveClient });

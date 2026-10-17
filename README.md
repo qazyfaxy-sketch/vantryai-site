@@ -118,6 +118,17 @@ For Growth (up to 3 notes a month) and Pro (up to 6) clients. AI often repeats a
 
 If sending isn't set up, an approved note is shown for you to copy and send yourself. Replies go to `OUTREACH_REPLY_TO` or your owner email. Settings in `wrangler.toml`; `OUTREACH_OFF="true"` stops it. Test: `node test/outreach.mjs`.
 
+## Reddit helper (no setup needed)
+
+For Growth (up to 2 answers a month) and Pro (up to 4) clients. Reddit is the most-cited source across AI engines in the studies we found, but it bans fake accounts and hidden promotion, so this only drafts honest answers that the client posts themselves.
+
+1. Takes the Reddit threads AI cited in the client's latest report (the report already stores the links). You can also paste a thread link on your admin page. No Reddit key is needed.
+2. Loads the thread and the subreddit rules (best effort). Locked, archived and adults-only threads and subreddits that ban promotion are skipped. If Reddit blocks the check, the draft is flagged "check before posting".
+3. AI first judges whether the client honestly answers the question, then writes 60 to 140 words from their website only. The first sentence is always a disclosure ("I work with ..."). A second pass fact-checks it. Answers with links, "best", "DM me", money or upvote requests are thrown away.
+4. You approve, redo with a note, or skip. Then the client is emailed the thread and the text and posts it from their own account, then pastes the link to their comment.
+
+It never posts, never uses accounts, never asks for upvotes, and drafts at most one answer per subreddit every 30 days. Settings: `REDDIT_BUDGET`, `REDDIT_OFF="true"`. Test: `node test/reddit.mjs`.
+
 ## Videos: one-time setup (about 30 minutes)
 
 1. **A YouTube channel for Vantry.** In YouTube, create a channel for your first category, e.g. "Dental Software Guide". Verify it with your phone (youtube.com/verify) so custom thumbnails work.
