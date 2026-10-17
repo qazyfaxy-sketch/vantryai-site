@@ -219,6 +219,7 @@ check(emails.length === 0, "website customers don't get AI plan reminders");
 
 // ---------- onboarding ----------
 const of = await (await call(`/start/${clientId}`)).text();
+check(of.includes('data-suggest="sell"') && of.includes('data-suggest="email"') && of.includes("function complete"), "onboarding form has finish-my-sentence suggestions");
 check(of.includes("Tell us about your business") && of.includes("owner@chairside.io"), "onboarding form loads with their email filled in");
 emails.length = 0;
 const op = await call(`/start/${clientId}`, form({ business: "Chairside Scheduling", website: "chairside.io", sell: "Scheduling for dentists", buyers: "2-5 dentist practices", competitors: "Weave, NexHealth", questions: "Does it text patients?\nBest dental scheduling app", avoid: "", reportEmail: "owner@chairside.io" }));

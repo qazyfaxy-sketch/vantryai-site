@@ -1,0 +1,20 @@
+// Run: node test/suggest.mjs
+import { complete, suggestScript } from "../src/lib/suggest.js";
+let ok = true, count = 0;
+const check = (c, m) => { count++; console.log(`${c ? "PASS" : "FAIL"}  ${m}`); if (!c) ok = false; };
+check(complete("sell", "sched")[0] === "scheduling software for ", "finishes 'what you sell' from a few letters");
+check(complete("sell", "scheduling software for den")[0] === "scheduling software for dental offices", "finishes who it's for after 'for'");
+check(complete("sell", "scheduling software for ").length === 6, "offers up to 6 audiences");
+check(complete("sell", "zebra widgets")[0] === "zebra widgets for ", "unknown words still get a 'for' nudge");
+check(complete("buyers", "small")[0].startsWith("Small") || complete("buyers", "sta")[0].startsWith("Startups"), "buyers: completes from the start");
+check(complete("website", "acme")[0] === "acme.com" && complete("website", "acme.c").includes("acme.co") && complete("website", "", { business: "Acme Co" })[0] === "acmeco.com", "website: adds a domain ending");
+check(complete("email", "jo")[0] === "jo@gmail.com" && complete("email", "jo", { site: "https://www.acme.com/" })[0] === "jo@acme.com" && complete("email", "jo@g")[0] === "jo@gmail.com", "email: finishes the domain, own site first");
+check(complete("questions", "", { sell: "Scheduling software for dental offices" })[0] === "What is the best scheduling software for dental offices?", "questions: built from what they sell");
+check(complete("questions", "How much")[0].startsWith("How much does"), "questions: finishes a started question");
+check(complete("avoid", "Don't pro")[0] === "Don't promise results or guarantees", "avoid: finishes common rules");
+check(complete("nope", "x").length === 0 && complete("sell", "").length === 6, "unknown kinds do nothing; empty sell shows starters");
+check(!complete("questions", "").some((s) => /guarantee|#1/i.test(s)), "suggestions never contain promises");
+const s = suggestScript();
+const fn = new Function(s.match(/var complete=([\s\S]*?)\nfunction val/)[1].replace(/;$/, "") + "; return complete;")();
+check(fn("sell", "sched")[0] === "scheduling software for ", "the browser script runs the same function");
+console.log(`\n${count} checks`); process.exit(ok ? 0 : 1);

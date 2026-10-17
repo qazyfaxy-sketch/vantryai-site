@@ -21,6 +21,7 @@ import { isVideoPath, videoRoute, videoAdmin, videoCard, runVideos } from "./lib
 import { isListingsPath, listingsRoute, listingsAdmin, listingsCard, runListings } from "./lib/listings.js";
 import { isOutreachPath, outreachRoute, outreachAdmin, outreachCard, runOutreach } from "./lib/outreach.js";
 import { isRedditPath, redditRoute, redditAdmin, redditCard, runReddit } from "./lib/reddit.js";
+import { suggestScript } from "./lib/suggest.js";
 import { isProspectsPath, prospectsRoute, prospectsAdmin, prospectsCard, runProspects } from "./lib/prospects.js";
 import { isDashPath, dashRoute, dashUrl, dashCard } from "./lib/dashboard.js";
 import { isReviewsPath, reviewsRoute, runReviews } from "./lib/reviews.js";
@@ -282,6 +283,7 @@ function welcomePage(c) {
 
 // ---------------- Onboarding (no call) ----------------
 
+const SUG = { website: "website", sell: "sell", buyers: "buyers", questions: "questions", avoid: "avoid", reportEmail: "email" };
 const FIELDS = [
   ["business", "Company name", "text"],
   ["website", "Your website", "text"],
@@ -324,9 +326,9 @@ ${sign}`,
     return html(page({ title: "Got it", body: `<main><h1>Got it. We're on it.</h1><p class="lede">Your starting report, on ${c.questions?.length || "your"} buyer questions, arrives by email within a few hours. Then you get a fresh report every month, with what changed and what we\'re fixing. Questions any time: just reply to any of our emails.</p>${PAGES_PER_MONTH[c.plan] ? `<div class="card"><h2>Optional, 2 minutes: connect your website</h2><p>So we can publish your fact-checked pages and AI code for you.</p><a class="jelly" href="/site/${c.id}">Connect your website</a></div>` : ""}</main>` }));
   }
   const v = c.onboarding || {};
-  const inputs = FIELDS.map(([k, label, type]) => `<label class="f"><span>${esc(label)}</span>${type === "textarea" ? `<textarea name="${k}" rows="3">${esc(v[k] || "")}</textarea>` : `<input type="text" name="${k}" value="${esc(v[k] || (k === "reportEmail" ? c.email : ""))}">`}</label>`).join("");
+  const inputs = FIELDS.map(([k, label, type]) => `<label class="f"><span>${esc(label)}</span>${type === "textarea" ? `<textarea name="${k}" rows="3"${SUG[k] ? ` data-suggest="${SUG[k]}"` : ""}>${esc(v[k] || "")}</textarea>` : `<input type="text" name="${k}"${SUG[k] ? ` data-suggest="${SUG[k]}"` : ""} value="${esc(v[k] || (k === "reportEmail" ? c.email : ""))}">`}</label>`).join("");
   const body = `<main><h1>Tell us about your business</h1><p class="lede">About 5 minutes. This is how we pick the questions your buyers ask AI. No call needed.</p>
-<form class="card" method="post">${inputs}<input type="text" name="company" tabindex="-1" autocomplete="off" style="position:absolute;left:-9999px" aria-hidden="true"><button class="jelly block">Send</button></form></main>
+<form class="card" method="post">${inputs}<input type="text" name="company" tabindex="-1" autocomplete="off" style="position:absolute;left:-9999px" aria-hidden="true"><p class="muted small">Tip: start typing and tap a suggestion to finish the sentence. You can always type your own.</p><button class="jelly block">Send</button></form></main>${suggestScript()}
 <style>.f{display:block;margin-bottom:16px}.f span{display:block;font-weight:600;margin-bottom:6px}textarea{width:100%;border:1px solid #B9C3D1;border-radius:12px;padding:12px 14px;font:16px var(--sans)}</style>`;
   return html(page({ title: "Get started", body }), 200, { "Cache-Control": "no-store" });
 }
@@ -360,9 +362,9 @@ export async function aiAdmin(req, url, env, form, token) {
 ${flash ? `<p class="card ok"><strong>${esc(flash)}</strong></p>` : ""}
 <form class="card" method="post" action="/admin/audit"><input type="hidden" name="token" value="${esc(token)}">
 <h2>Run a report</h2>
-<div class="g"><label>Business name<input type="text" name="name" required></label><label>Website<input type="text" name="website" placeholder="example.com"></label>
-<label>What they sell<input type="text" name="category" required placeholder="scheduling software for dental offices"></label><label>Who buys it<input type="text" name="audience" placeholder="small dental practices"></label></div>
-<label>Questions (optional, one per line; leave empty and AI writes 3)<textarea name="questions" rows="3"></textarea></label>
+<div class="g"><label>Business name<input type="text" name="name" required></label><label>Website<input type="text" name="website" placeholder="example.com" data-suggest="website"></label>
+<label>What they sell<input type="text" name="category" required placeholder="scheduling software for dental offices" data-suggest="sell"></label><label>Who buys it<input type="text" name="audience" placeholder="small dental practices" data-suggest="buyers"></label></div>
+<label>Questions (optional, one per line; leave empty and AI writes 3)<textarea name="questions" rows="3" data-suggest="questions"></textarea></label>
 <button class="jelly sm">Run report</button></form>
 <div class="card"><h2>Clients</h2>${clients.length ? `<table><tr><th>Email</th><th>Plan</th><th>Status</th><th>Onboarding</th><th>Latest report</th></tr>${clients.map((c) => { const a = (c.audits || []).slice(-1)[0]; return `<tr><td>${esc(c.email || "-")}</td><td>${esc(AI_PLANS[c.plan]?.label || c.plan)}</td><td>${esc(c.status)}</td><td>${c.onboardedAt ? "Done" : `<a href="/start/${c.id}">Link</a>`}</td><td>${c.job ? `Checking: ${c.job.next} of ${c.job.pairs.length}` : a ? `<a href="/r/${a.id}" target="_blank" rel="noopener">${a.mentioned}/${a.total}</a>` : "-"}${c.promise ? `<br><span class="small muted">60-day: ${c.promise.kept ? "kept" : c.promise.freeMonth ? "free month given" : "needs you"}</span>` : ""}</td></tr>`; }).join("")}</table>` : '<p class="muted">No clients yet.</p>'}</div>
 ${await videoCard(env, clients, token)}
@@ -377,7 +379,7 @@ ${await dashCard(env, clients)}
 </main>
 <style>.g{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}label{display:block;font-weight:600;font-size:14px;margin-bottom:12px}label input,label textarea{margin-top:6px}textarea{width:100%;border:1px solid #B9C3D1;border-radius:12px;padding:12px;font:15px var(--sans)}
 table{border-collapse:collapse;width:100%;font-size:14px}th{text-align:left;font-size:12px;color:var(--muted);padding:8px}td{padding:10px 8px;border-top:1px solid var(--line);vertical-align:top}</style>`;
-  return html(page({ title: "AI visibility", body }), 200, { "Cache-Control": "no-store", "X-Robots-Tag": "noindex" });
+  return html(page({ title: "AI visibility", body: body + suggestScript() }), 200, { "Cache-Control": "no-store", "X-Robots-Tag": "noindex" });
 }
 
 // Cron: starting reports, monthly reports, fix lists and the 60-day promise.
