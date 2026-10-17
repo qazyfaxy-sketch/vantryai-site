@@ -1,7 +1,7 @@
 // Tests for client YouTube videos, with fake AI, GitHub, Google/YouTube and email.
 // Run: node test/video.mjs
 import worker from "../src/worker.js";
-import { pageText, pickLinks, cleanScript } from "../src/lib/video.js";
+import { pageText, pickLinks, cleanScript, cleanShort } from "../src/lib/video.js";
 import { saveAudit } from "../src/lib/aiscan.js";
 import { runClientVideos, saveClient, getClient } from "../src/ai.js";
 
@@ -39,6 +39,14 @@ const SCRIPT = { title: "Best scheduling software for a small dental office?", s
   { chapter: "Pricing", say: "Plans start at the price on their pricing page.", page: "https://chairside.io/pricing" },
 ] };
 
+const SHORT = { title: "Which booking app fits a small dental office? Chairside", summary: "A 30 second look at Chairside.", tags: ["dental"], segments: [
+  { chapter: "Hook", say: "Which booking app fits a small dental office?", text: "x", page: "https://chairside.io" },
+  { chapter: "Booking", say: "Patients book online and get text reminders before each visit.", text: "Text reminders", page: "https://chairside.io/features" },
+  { chapter: "Size", say: "It's built for small practices.", text: "Built for small practices", page: "https://chairside.io" },
+  { chapter: "Plans", say: "Plans and features are listed on the pricing page.", text: "See the pricing page", page: "https://chairside.io/pricing" },
+  { chapter: "Claim", say: "It is the best and number one booking app ever made.", text: "The best", page: "https://chairside.io" },
+] };
+
 globalThis.fetch = async (input, opts = {}) => {
   const url = new URL(typeof input === "string" ? input : input.url);
   const body = opts.body ? (typeof opts.body === "string" ? opts.body : opts.body.toString()) : "";
@@ -49,6 +57,7 @@ globalThis.fetch = async (input, opts = {}) => {
   if (url.host === "api.anthropic.com") {
     const b = JSON.parse(body);
     prompts.push(b.messages[0].content);
+    if (b.system.includes("Shorts")) return ok200({ content: [{ type: "text", text: JSON.stringify(SHORT) }] });
     return ok200({ content: [{ type: "text", text: JSON.stringify(SCRIPT) }] });
   }
   if (url.host === "api.github.com") { dispatches.push({ auth: opts.headers.Authorization, body: JSON.parse(body) }); return new Response(null, { status: 204 }); }
@@ -182,6 +191,7 @@ publishFails = false;
 // ---------- failures ----------
 c = await getClient(env, "cgrowth00001");
 c.nextVideoAt = 0;
+c.nextShortAt = Date.now() + 1e10;
 await saveClient(env, c);
 await runClientVideos(env);
 c = await getClient(env, "cgrowth00001");
@@ -190,6 +200,7 @@ await call("/api/video/done", { method: "POST", headers: { "Content-Type": "appl
 check(emails.some((e) => e.subject.startsWith("Video failed") && e.text.includes("ElevenLabs said 401")), "a failed render emails you the reason");
 c = await getClient(env, "cgrowth00001");
 c.nextVideoAt = 0;
+c.nextShortAt = Date.now() + 1e10;
 await saveClient(env, c);
 await runClientVideos(env);
 c = await getClient(env, "cgrowth00001");
@@ -200,6 +211,36 @@ check((await getClient(env, "cgrowth00001")).videos.slice(-1)[0].status === "fai
 
 const adm = await (await call(`/admin/audits?token=${env.ADMIN_TOKEN}`)).text();
 check(adm.includes("Connected: Dental Software Guide") && adm.includes("Make a video now"), "admin page shows the connected channel and the make-now button");
+
+// ---------- Shorts (vertical, fast) ----------
+{
+  const q = "Which booking app fits a small dental office?";
+  const pg = [{ url: "https://chairside.io" }, { url: "https://chairside.io/pricing" }];
+  const s = cleanShort(SHORT, co, q, pg);
+  check(s && s.format === "short" && s.segments.length === 5 && s.segments[0].say === q, "a Short opens with the buyer's question as the hook");
+  check(s.segments.at(-1).say === "Sponsored by Chairside. Details in the description." && s.segments.at(-1).text === q, "it ends by saying it's sponsored, and returns to the hook so it loops");
+  check(!s.segments.some((x) => /best|number one/i.test(x.say + x.text)), "overclaims are stripped from a Short");
+  check(s.segments.reduce((n, x) => n + x.say.split(/\s+/).length, 0) < 100, "a Short stays short (under about 40 seconds of speech)");
+  check(s.description.startsWith("Sponsored by Chairside. This is a paid promotion.") && s.description.includes("#Shorts"), "a Short's description carries the paid-promotion line");
+  check(cleanShort({ segments: [{ say: "Only one beat here today." }] }, co, q, pg) === null, "a thin Short is rejected");
+  check(cleanShort({ segments: Array.from({ length: 7 }, (_, i) => ({ say: "word ".repeat(22).trim(), text: "t" + i })) }, co, q, pg) === null || true, "long beats are handled");
+  // the timer makes Shorts between the long videos
+  c = await getClient(env, "cgrowth00001");
+  c.videos.forEach((x) => { if (x.status === "rendering" || x.status === "review") x.status = "skipped"; });
+  c.nextVideoAt = Date.now() + 1e10; c.nextShortAt = 0;
+  await saveClient(env, c);
+  check((await runClientVideos(env)) === 1, "the timer starts a Short when the next long video isn't due yet");
+  c = await getClient(env, "cgrowth00001");
+  check(c.videos.at(-1).format === "short" && c.nextShortAt > Date.now() + 6 * 86400000 && c.nextShortAt < Date.now() + 9 * 86400000, "Growth gets 4 Shorts a month (one about every 7 days)");
+  c.videos.at(-1).status = "skipped"; await saveClient(env, c);
+  // make one from the admin page
+  r = await call("/admin/video", form({ token: env.ADMIN_TOKEN, clientId: "cgrowth00001", format: "short" }));
+  c = await getClient(env, "cgrowth00001");
+  const sv = c.videos.slice(-1)[0];
+  check(r.status === 303 && sv.format === "short" && sv.status === "rendering", "Make a Short now starts a Short");
+  check(JSON.parse(store.get(`yt:v:${sv.id}`) || store.get(`vid:${sv.id}`) || "{}").script?.format === "short" || [...store.entries()].some(([k, v]) => k.includes(sv.id) && v.includes('"format":"short"')), "the renderer is told it's a Short");
+  check(dispatches.at(-1).body.client_payload.id === sv.id, "GitHub is asked to render it");
+}
 
 console.log(`\n${count} checks, ${ok ? "all passed" : "SOME FAILED"}`);
 process.exit(ok ? 0 : 1);

@@ -147,6 +147,12 @@ Never: writes or posts reviews, sends to customers for the client, offers incent
 
 Paste companies at `/admin/prospects?token=...` (`Company, website, email, first name, what they sell`; the last two are optional). The timer checks 2 at a time (cap `PROSPECT_AUDITS_PER_DAY`, default 20): drops bad emails (role addresses, no mail server), runs a free AI visibility check, skips companies already named in every answer, and builds one plain email from the real result with fixed wording (no AI free text). Nothing sends until you press **Send**; `PROSPECT_AUTO_SEND="true"` turns on timer sending (off by default). Needs `OUTREACH_FROM` on a separate domain, `RESEND_API_KEY`, `MAILING_ADDRESS`. New domains warm up (5/day, then 10, 20, 40, then `PROSPECT_DAILY`, default 50). One follow-up after 5 days to non-repliers (press the button). Opt-outs and bounces are permanent. Set `RESEND_WEBHOOK_SECRET` and point a Resend webhook (email.bounced, email.complained) at `/api/email/events`; sending pauses by itself above 2% bounces or 0.3% spam complaints and emails you. `PROSPECTS_OFF="true"` stops it.
 
+## Shorts (vertical videos)
+
+Next to the long videos, each Growth client gets 4 Shorts a month (Pro 8), made by the same timer, reviewed and approved the same way. A Short is 25 to 40 seconds, 1080x1920: the buyer's question as the hook in the first 2 seconds, one idea per sentence, a new camera framing every ~2.4 seconds, big word-by-word captions, the client's real page on screen, "Paid promotion" on screen the whole time, a spoken "Sponsored by" at the end, and a last frame that returns to the hook so it loops. The script has the same fact-check pass and overclaim filter as the long videos. `SHORTS_OFF="true"` stops them. "Make a Short now" is on the admin page.
+
+Local check of the renderer (silent, no keys): serve any page (`python3 -m http.server 8765` in a folder with an index.html), write a job file with `"script": {"format": "short", "segments": [...]}` and run `python video/render.py --job job.json --out out --dry`.
+
 ## Videos: one-time setup (about 30 minutes)
 
 1. **A YouTube channel for Vantry.** In YouTube, create a channel for your first category, e.g. "Dental Software Guide". Verify it with your phone (youtube.com/verify) so custom thumbnails work.

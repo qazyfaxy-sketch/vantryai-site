@@ -690,6 +690,9 @@ def find_music():
 
 
 def render(job, out, dry=False):
+    if job["script"].get("format") == "short":
+        from short import render_short
+        return render_short(job, out, dry)
     out.mkdir(parents=True, exist_ok=True)
     work = out / "work"
     work.mkdir(exist_ok=True)

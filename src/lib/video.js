@@ -22,10 +22,12 @@
 //   POST /admin/video           make a video for a client now
 import { json, html, httpError, randomId, readJson, safeEqual, esc } from "./util.js";
 import { claudeJson, getAudit } from "./aiscan.js";
+import { scrubText } from "./sitefix.js";
 import { sendEmail } from "./email.js";
 import { page } from "../pages/shell.js";
 
 export const VIDEOS_PER_MONTH = { growth: 2, pro: 4 };
+export const SHORTS_PER_MONTH = { growth: 4, pro: 8 };
 const DAY = 86400000;
 const MONTH = 30 * DAY;
 const MAX_ATTEMPTS = 3;
@@ -217,6 +219,65 @@ export async function writeScript(env, c, question, pages, note = "") {
   return cleanScript(checked && Array.isArray(checked.segments) ? checked : draft, co, question, pages);
 }
 
+const SHORT_SYSTEM = (co, competitors, avoid) => `You write scripts for 25-to-40-second vertical "Shorts" for people shopping for ${co.category}. The video is about ${co.name} and is paid for by them (a "Paid promotion" label is on screen the whole time and the outro says so, so don't mention it).
+Format rules:
+- Beat 1 is the HOOK: the buyer's question in 9 words or fewer, spoken as a question. Nothing before it.
+- Then 4 to 6 beats. Each beat is ONE idea in ONE short sentence of 6 to 16 words, spoken aloud, plain English, "you" voice.
+- Each beat also has "text": the 2 to 5 word headline shown big on screen (a fact or a number from the page, like "$99 a month" or "Text reminders").
+- Total spoken words: 70 to 100.
+Rules you never break:
+- Use ONLY facts found in the website text. Never invent features, prices, numbers, customers, reviews, awards, integrations or results. If it isn't in the text, leave it out.
+- Never say ${co.name} is the best, #1 or better than anyone. No guarantees. No claims about competitors${competitors ? ` (buyers also compare ${competitors}; names only, if at all)` : ""}.
+${avoid ? `- Never mention: ${avoid}\n` : ""}- No hype words (revolutionary, game-changing, seamless, ultimate...).
+Return JSON only:
+{"title": "under 80 characters, phrased like the buyer's question, includes ${co.name}",
+ "summary": "2 plain sentences for the description",
+ "tags": ["up to 8 short tags"],
+ "segments": [{"chapter": "2-3 words", "say": "the spoken sentence", "text": "the on-screen headline", "page": "one of the page URLs given"}]}`;
+
+const SHORT_CHECK = `You are a strict fact checker. You get a Shorts script (JSON) and the website text it must be based on.
+Remove or rewrite every beat that isn't directly supported by the website text, every superlative ("best", "#1", "leading"), every claim about another company and every guarantee. Keep the same JSON shape, keep every "text" headline short (2 to 5 words) and every "say" to one sentence under 17 words. Return the corrected JSON only.`;
+
+export async function writeShort(env, c, question, pages, note = "") {
+  const co = companyOfClient(c);
+  const sources = pages.map((p, i) => `PAGE ${i + 1}: ${p.url}\n${p.text.slice(0, 3500)}`).join("\n\n");
+  const model = env.VIDEO_MODEL || "claude-sonnet-5-5";
+  const draft = await claudeJson(env, SHORT_SYSTEM(co, String(c.onboarding?.competitors || "").replace(/\s+/g, " ").slice(0, 200), String(c.onboarding?.avoid || "").slice(0, 400)), `Buyer question: ${question}\n${note ? `Change requested by the reviewer: ${note}\n` : ""}Company: ${co.name} (${co.website})\nWho buys it: ${co.audience || "-"}\n\nWebsite text:\n${sources}`, 2000, model);
+  if (!draft || !Array.isArray(draft.segments)) return null;
+  const checked = await claudeJson(env, SHORT_CHECK, `Script:\n${JSON.stringify(draft)}\n\nWebsite text:\n${sources}`, 2000, model);
+  return cleanShort(checked && Array.isArray(checked.segments) ? checked : draft, co, question, pages);
+}
+
+const words = (t) => String(t || "").trim().split(/\s+/).filter(Boolean).length;
+
+export function cleanShort(s, co, question, pages) {
+  const urls = pages.map((p) => p.url);
+  const home = urls[0] || co.website;
+  let body = (s.segments || [])
+    .map((x) => ({ chapter: String(x.chapter || "").slice(0, 30).trim(), say: scrubText(String(x.say || "").replace(/\s+/g, " ").trim()).slice(0, 200), text: scrubText(String(x.text || "").replace(/\s+/g, " ").trim()).slice(0, 40), page: urls.includes(x.page) ? x.page : home }))
+    .filter((x) => words(x.say) >= 3 && words(x.say) <= 24)
+    .slice(0, 7);
+  while (body.length > 4 && body.reduce((n, x) => n + words(x.say), 0) > 100) body.pop(); // keep it under about 40 seconds
+  if (body.length < 4) return null;
+  for (const b of body) if (!b.text || words(b.text) > 6) b.text = b.say.split(/\s+/).slice(0, 4).join(" ").replace(/[.,;:!?]+$/, "");
+  const hookText = String(question).replace(/\?$/, "").trim().split(/\s+/).length <= 11 ? String(question).trim() : body[0].text;
+  body[0].text = hookText;
+  body[0].page = home;
+  const outro = { chapter: "Learn more", visual: "title", say: `Sponsored by ${co.name}. Details in the description.`, text: hookText };
+  let title = String(s.title || question).replace(/\s+/g, " ").trim();
+  if (!title.toLowerCase().includes(co.name.toLowerCase())) title = `${title.replace(/\?$/, "")}: ${co.name}`;
+  title = title.slice(0, 90);
+  const summary = String(s.summary || "").replace(/\s+/g, " ").trim().slice(0, 300);
+  return {
+    format: "short",
+    title,
+    question,
+    segments: [...body, outro],
+    tags: (Array.isArray(s.tags) ? s.tags : []).map((t) => String(t).slice(0, 40)).filter(Boolean).slice(0, 8),
+    description: `Sponsored by ${co.name}. This is a paid promotion.\n\n${summary}\n\n${co.name}: ${co.website}\n\nWhat's on screen is ${co.name}'s own website. Narrated with an AI voice. Facts come from ${co.name}'s public website; check it for current details and pricing.\n\n#Shorts`,
+  };
+}
+
 export function companyOfClient(c) {
   const o = c.onboarding || {};
   const site = String(o.website || "").trim();
@@ -259,17 +320,17 @@ export async function dispatchRender(env, id) {
   if (!res.ok) throw new Error(`GitHub said ${res.status}: ${(await res.text()).slice(0, 200)}`);
 }
 
-export async function makeVideo(env, c, saveClient, { note = "", question: forced } = {}) {
+export async function makeVideo(env, c, saveClient, { note = "", question: forced, format = "long" } = {}) {
   const question = forced || (await pickQuestion(env, c));
   if (!question) throw new Error("No buyer questions yet. Their starting report has to finish first.");
   const pages = await readSite(c.onboarding?.website);
   if (!pages.length) throw new Error(`Couldn't read their website (${c.onboarding?.website || "none given"}).`);
-  const script = await writeScript(env, c, question, pages, note);
+  const script = format === "short" ? await writeShort(env, c, question, pages, note) : await writeScript(env, c, question, pages, note);
   if (!script) throw new Error("The script didn't come out right. Try again in a bit.");
   script.question = question;
   const v = { id: `v${randomId(11)}`, clientId: c.id, channel: channelOf(env, c), status: "rendering", createdAt: Date.now(), script, company: companyOfClient(c), pages: pages.map((p) => p.url), attempts: 1, history: [] };
   await saveVideo(env, v);
-  (c.videos ||= []).push({ id: v.id, at: v.createdAt, q: question, status: "rendering", title: script.title });
+  (c.videos ||= []).push({ id: v.id, at: v.createdAt, q: question, status: "rendering", title: script.title, format });
   c.videos = c.videos.slice(-60);
   await saveClient(env, c, `Video started: ${script.title}`);
   try {
@@ -315,10 +376,12 @@ export async function runVideos(env, { listClients, saveClient }) {
       if (!per || c.status !== "active" || !c.onboardedAt || !(c.audits || []).length || started >= budget) continue;
       if (!(await getChannel(env, channelOf(env, c)))) continue;
       if ((c.videos || []).some((x) => x.status === "rendering" || x.status === "review")) continue;
-      if (Date.now() < (c.nextVideoAt || 0)) continue;
-      c.nextVideoAt = Date.now() + Math.floor(MONTH / per);
+      let format = "long";
+      if (Date.now() >= (c.nextVideoAt || 0)) c.nextVideoAt = Date.now() + Math.floor(MONTH / per);
+      else if (env.SHORTS_OFF !== "true" && Date.now() >= (c.nextShortAt || 0)) { format = "short"; c.nextShortAt = Date.now() + Math.floor(MONTH / SHORTS_PER_MONTH[c.plan]); }
+      else continue;
       started++;
-      await makeVideo(env, c, saveClient);
+      await makeVideo(env, c, saveClient, { format });
     } catch (e) {
       console.log("Video failed for", c.id, e.message);
       await sendEmail(env, { to: env.OWNER_EMAIL, subject: `Video not made: ${c.onboarding?.business || c.email}`, text: `${e.message}\n\nIt tries again at the next scheduled slot, or make one now from your admin page.` }).catch(() => {});
@@ -441,7 +504,7 @@ async function reviewPage(req, url, env, id, { getClient, saveClient }) {
         if (!c) throw new Error("Client not found.");
         const note = String(form.get("note") || "").trim().slice(0, 300);
         await setStatus(env, v, c, saveClient, "redone");
-        const nv = await makeVideo(env, c, saveClient, { note, question: v.script.question });
+        const nv = await makeVideo(env, c, saveClient, { note, question: v.script.question, format: v.script.format === "short" ? "short" : "long" });
         nv.attempts = (v.attempts || 1) + 1;
         await saveVideo(env, nv);
         return html(page({ title: "Redoing", body: `<main><h1>On it.</h1><p class="lede">A new version is rendering${note ? " with your note" : ""}. You'll get an email in about 10 minutes.</p></main>` }));
@@ -484,7 +547,7 @@ export async function videoAdmin(req, url, env, form, token, { getClient, saveCl
     let msg;
     try {
       if (!c) throw new Error("Client not found.");
-      const v = await makeVideo(env, c, saveClient);
+      const v = await makeVideo(env, c, saveClient, { format: String(form.get("format") || "") === "short" ? "short" : "long" });
       msg = `Rendering "${v.script.title}". You'll get an email when it's ready.`;
     } catch (e) {
       msg = `Couldn't start it: ${e.message}`;
@@ -512,7 +575,7 @@ export async function videoCard(env, clients, token) {
   const eligible = clients.filter((c) => VIDEOS_PER_MONTH[c.plan] && c.status === "active" && c.onboardedAt);
   return `<div class="card"><h2>Videos</h2>
 <table>${ready.map(([a, b]) => `<tr><td>${a}</td><td>${b}</td></tr>`).join("")}</table>
-${eligible.length ? `<form method="post" action="/admin/video" style="margin-top:14px"><input type="hidden" name="token" value="${esc(token)}"><select name="clientId">${eligible.map((c) => `<option value="${c.id}">${esc(c.onboarding?.business || c.email)}</option>`).join("")}</select> <button class="jelly sm">Make a video now</button></form>` : ""}
+${eligible.length ? `<form method="post" action="/admin/video" style="margin-top:14px"><input type="hidden" name="token" value="${esc(token)}"><select name="clientId">${eligible.map((c) => `<option value="${c.id}">${esc(c.onboarding?.business || c.email)}</option>`).join("")}</select> <button class="jelly sm">Make a video now</button> <button class="ghost sm" name="format" value="short">Make a Short now</button></form>` : ""}
 ${rows.length ? `<table style="margin-top:14px"><tr><th>Video</th><th>Client</th><th>Status</th><th>When</th></tr>${rows.slice(0, 30).map((r, i) => `<tr><td><a href="${esc(links[i])}">${esc(r.x.title || r.x.q)}</a></td><td>${esc(r.c.onboarding?.business || r.c.email)}</td><td>${esc(r.x.status)}${r.x.youtubeId ? ` · <a href="https://youtu.be/${esc(r.x.youtubeId)}" target="_blank" rel="noopener">YouTube</a>` : ""}</td><td class="small">${new Date(r.x.at).toLocaleDateString("en-US", { timeZone: "America/New_York" })}</td></tr>`).join("")}</table>` : '<p class="muted">No videos yet. Growth clients get 2 a month and Pro clients 4, once their starting report is done.</p>'}
 </div>`;
 }
