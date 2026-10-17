@@ -53,6 +53,8 @@ async function dashboard(env, c) {
   const listed = lrows.reduce((n, r) => n + (r.live || 0), 0);
   const listTodo = lrows.reduce((n, r) => n + (r.todo || 0) + (r.submitted || 0), 0);
   const posted = (c.reddit?.rows || []).filter((r) => r.status === "posted").length;
+  const liPosted = (c.linkedin?.rows || []).filter((r) => r.status === "posted").length;
+  const liOpen = (c.linkedin?.rows || []).filter((r) => r.status === "open").length;
   const redditOpen = (c.reddit?.rows || []).filter((r) => r.status === "open").length;
   const sent = (c.outreach?.rows || []).filter((r) => r.status === "sent" || r.status === "replied").length;
   const latest = entries[entries.length - 1];
@@ -73,6 +75,7 @@ ${rows.length ? `<div class="card"><h2>Then and now, question by question</h2>
 <li><strong>${liveVideos.length}</strong> video${liveVideos.length === 1 ? "" : "s"} on YouTube${liveVideos.length ? `: ${liveVideos.slice(-4).map((v) => `<a href="https://youtu.be/${esc(v.youtubeId)}" target="_blank" rel="noopener">${esc(v.title || "Watch")}</a>`).join(", ")}` : ""}</li>
 <li><strong>${listed}</strong> listing${listed === 1 ? "" : "s"} live on review sites and directories${listTodo ? ` · <a href="${api(env)}/listings/${esc(c.id)}">${listTodo} still to do</a>` : lrows.length ? ` · <a href="${api(env)}/listings/${esc(c.id)}">see your kit</a>` : ""}</li>
 <li><strong>${sent}</strong> note${sent === 1 ? "" : "s"} sent to writers of articles AI cites</li>
+<li><strong>${liPosted}</strong> LinkedIn post${liPosted === 1 ? "" : "s"} posted${liOpen ? ` · <a href="${api(env)}/linkedin/${esc(c.id)}">${liOpen} waiting for you</a>` : ""}</li>
 <li><strong>${posted}</strong> Reddit answer${posted === 1 ? "" : "s"} posted${redditOpen ? ` · <a href="${api(env)}/reddit/${esc(c.id)}">${redditOpen} waiting for you</a>` : ""}</li>
 </ul>
 <p class="muted small">Pages, videos, listings and notes are done by plan. Reddit answers and listings are posted by you, from your own accounts.</p></div>

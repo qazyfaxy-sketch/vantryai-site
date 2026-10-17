@@ -161,6 +161,10 @@ Local check of the renderer (silent, no keys): serve any page (`python3 -m http.
 
 On `/admin/prospects`, "Find contacts for me" takes company websites and reads only each company's own public pages (homepage, contact page, about page; skips sites whose robots.txt says no) for an email on the company's own domain. It never guesses an address; generic ones like info@ are used only if nothing better is published. Replies: add an inbound route in Resend (event `email.received`, same webhook URL) or paste a reply into the page. Replies are sorted (interested, question, no, opt-out, automatic); opt-outs and "no thanks" go on the never-email list, follow-ups stop, and you're emailed about the interested ones. Nothing is ever answered for you.
 
+## LinkedIn posts
+
+Growth clients get up to 2 posts a month (Pro 4), at least a week apart. For each, the timer picks a buyer question AI isn't naming them for (then the questions they told us), writes a 90-170 word post from their own website only, fact-checks it (no links, no "best", no engagement requests, at most 2 hashtags), and emails you a review link (`/ik/...`). On approval the client gets `/linkedin/:clientId` with the text, posts it from their own profile or company page, and pastes the post link (only real linkedin.com/posts, /feed/update or /pulse links are accepted). We never post, never use accounts, never ask for likes or engagement groups. `LINKEDIN_OFF="true"` stops it; `LINKEDIN_BUDGET` is clients per timer run (default 1).
+
 ## Videos: one-time setup (about 30 minutes)
 
 1. **A YouTube channel for Vantry.** In YouTube, create a channel for your first category, e.g. "Dental Software Guide". Verify it with your phone (youtube.com/verify) so custom thumbnails work.

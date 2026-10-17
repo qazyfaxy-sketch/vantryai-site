@@ -21,6 +21,7 @@ import { isVideoPath, videoRoute, videoAdmin, videoCard, runVideos } from "./lib
 import { isListingsPath, listingsRoute, listingsAdmin, listingsCard, runListings } from "./lib/listings.js";
 import { isOutreachPath, outreachRoute, outreachAdmin, outreachCard, runOutreach } from "./lib/outreach.js";
 import { isRedditPath, redditRoute, redditAdmin, redditCard, runReddit } from "./lib/reddit.js";
+import { isLinkedinPath, linkedinRoute, linkedinAdmin, linkedinCard, runLinkedin } from "./lib/linkedin.js";
 import { checkAdmin } from "./lib/check.js";
 import { suggestScript } from "./lib/suggest.js";
 import { isProspectsPath, prospectsRoute, prospectsAdmin, prospectsCard, runProspects } from "./lib/prospects.js";
@@ -48,7 +49,7 @@ const cancelText = (env) =>
 const sign = "Thanks,\nVince\nVantry · vantryai.com";
 
 export function isAiPath(p) {
-  return isVideoPath(p) || isSitePath(p) || isListingsPath(p) || isOutreachPath(p) || isRedditPath(p) || isDashPath(p) || isProspectsPath(p) || isReviewsPath(p) || p === "/api/report" || p === "/api/audit/batch" || p === "/api/ai/checkout" || /^\/r\/a[a-z0-9]{11}$/.test(p) || /^\/ai\/welcome\/c[a-z0-9]{11}$/.test(p) || /^\/start\/c[a-z0-9]{11}$/.test(p);
+  return isVideoPath(p) || isSitePath(p) || isListingsPath(p) || isOutreachPath(p) || isRedditPath(p) || isLinkedinPath(p) || isDashPath(p) || isProspectsPath(p) || isReviewsPath(p) || p === "/api/report" || p === "/api/audit/batch" || p === "/api/ai/checkout" || /^\/r\/a[a-z0-9]{11}$/.test(p) || /^\/ai\/welcome\/c[a-z0-9]{11}$/.test(p) || /^\/start\/c[a-z0-9]{11}$/.test(p);
 }
 
 export async function aiRoute(req, url, env, cors) {
@@ -59,6 +60,7 @@ export async function aiRoute(req, url, env, cors) {
   if (isListingsPath(p)) return await listingsRoute(req, url, env, { getClient, saveClient });
   if (isOutreachPath(p)) return await outreachRoute(req, url, env, { getClient, saveClient });
   if (isRedditPath(p)) return await redditRoute(req, url, env, { getClient, saveClient });
+  if (isLinkedinPath(p)) return await linkedinRoute(req, url, env, { getClient, saveClient });
   if (isProspectsPath(p)) return await prospectsRoute(req, url, env);
   if (isDashPath(p)) return await dashRoute(req, url, env, { getClient });
   if (isReviewsPath(p)) return await reviewsRoute(req, url, env, { getClient, saveClient });
@@ -340,6 +342,7 @@ export async function aiAdmin(req, url, env, form, token) {
   if (url.pathname.startsWith("/admin/youtube") || url.pathname === "/admin/video") return await videoAdmin(req, url, env, form, token, { getClient, saveClient });
   if (url.pathname === "/admin/check") return await checkAdmin(req, url, env, form, token);
   if (url.pathname === "/admin/prospects") return await prospectsAdmin(req, url, env, form, token);
+  if (req.method === "POST" && url.pathname === "/admin/linkedin") return await linkedinAdmin(req, url, env, form, token, { getClient, saveClient });
   if (req.method === "POST" && url.pathname === "/admin/reddit") return await redditAdmin(req, url, env, form, token, { getClient, saveClient });
   if (req.method === "POST" && url.pathname === "/admin/outreach") return await outreachAdmin(req, url, env, form, token, { getClient, saveClient });
   if (req.method === "POST" && url.pathname === "/admin/listings") return await listingsAdmin(req, url, env, form, token, { getClient, saveClient });
@@ -374,6 +377,7 @@ ${await siteCard(env, clients, token)}
 ${await listingsCard(env, clients, token)}
 ${await outreachCard(env, clients, token)}
 ${await redditCard(env, clients, token)}
+${await linkedinCard(env, clients, token)}
 <div class="card"><h2>Setup check</h2><p><a href="/admin/check?token=${t}">Is everything set up? Test my keys</a></p></div>
 ${await prospectsCard(env, token)}
 ${await dashCard(env, clients)}
@@ -390,6 +394,7 @@ export const runClientDelivery = (env) => runDelivery(env, { listClients, saveCl
 // Cron: YouTube videos for Growth and Pro clients.
 export const runClientVideos = (env) => runVideos(env, { listClients, saveClient });
 // Cron: website pages, schema and llms.txt for Growth and Pro clients.
+export const runClientLinkedin = (env) => runLinkedin(env, { listClients, saveClient });
 export const runClientProspects = (env) => runProspects(env);
 export const runClientReviews = (env) => runReviews(env, { listClients, saveClient });
 export const runClientReddit = (env) => runReddit(env, { listClients, saveClient });
