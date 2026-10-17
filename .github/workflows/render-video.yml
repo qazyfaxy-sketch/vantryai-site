@@ -1,0 +1,54 @@
+# Renders client videos for the Vantry engine (api.vantryai.com).
+# The Worker starts it with a repository_dispatch "render-video" event; the code lives on the engine branch.
+# Secrets (Settings > Secrets and variables > Actions): VIDEO_SECRET, ELEVENLABS_API_KEY
+name: Render video
+on:
+  repository_dispatch:
+    types: [render-video]
+  workflow_dispatch:
+    inputs:
+      id:
+        description: "Video id (v + 11 letters/numbers)"
+        required: true
+permissions:
+  contents: read
+concurrency:
+  group: render-${{ github.event.client_payload.id || inputs.id }}
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: engine
+      - name: Install video tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg fonts-inter > /dev/null
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install renderer
+        run: |
+          pip install -q -r video/requirements.txt
+          python -m playwright install --with-deps chromium > /dev/null
+      - name: Render and upload
+        env:
+          VIDEO_ID: ${{ github.event.client_payload.id || inputs.id }}
+          VIDEO_API: ${{ github.event.client_payload.api || 'https://api.vantryai.com' }}
+          VIDEO_SECRET: ${{ secrets.VIDEO_SECRET }}
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+        run: python video/render.py --id "$VIDEO_ID" --out out
+      - name: Keep the files for 30 days
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: video-${{ github.event.client_payload.id || inputs.id }}
+          path: |
+            out/video.mp4
+            out/thumbnail.jpg
+            out/captions.srt
+            out/youtube.txt
+          retention-days: 30
+          if-no-files-found: ignore
