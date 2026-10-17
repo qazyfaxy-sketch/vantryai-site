@@ -178,6 +178,32 @@
     footer .wrap{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
     footer a{color:var(--muted);margin-left:18px;text-decoration:none}footer a:hover{color:var(--ink)}
 
+    /* realistic AI chat window in the hero */
+    .demo{position:relative;padding-bottom:8px}
+    .demo .tabs{display:inline-flex;margin:0 0 14px}
+    .chatapp{border-radius:18px;overflow:hidden;background:#fff;box-shadow:0 40px 80px -36px rgba(15,22,48,.45),0 0 0 1px rgba(15,22,48,.08)}
+    .bar{display:flex;align-items:center;gap:7px;height:38px;padding:0 14px;background:#F2F3F6;border-bottom:1px solid #E6E8EE}
+    .bar i{width:11px;height:11px;border-radius:50%;background:#D9DCE3}.bar i:nth-child(1){background:#F26B5E}.bar i:nth-child(2){background:#F6BE4F}.bar i:nth-child(3){background:#5FC454}
+    .url{margin-left:auto;margin-right:auto;font:500 12px var(--sans);color:#7A7F92;background:#fff;border-radius:7px;padding:3px 40px;box-shadow:0 0 0 1px #E3E6EC}
+    .app{display:grid;grid-template-columns:150px 1fr;min-height:390px}
+    .side{background:#F7F7F8;border-right:1px solid #ECEDF1;padding:14px 10px;display:flex;flex-direction:column;gap:4px;font-size:12.5px;color:#4B5065}
+    .newchat{border:1px solid #E1E3E9;border-radius:9px;padding:7px 10px;margin-bottom:10px;background:#fff;font-weight:500}
+    .hist{padding:7px 10px;border-radius:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.hist.on{background:#ECECF0;color:#1B1D2B}
+    .thread{display:flex;flex-direction:column;padding:22px 22px 16px;gap:18px;background:#fff}
+    .msg-user{align-self:flex-end;max-width:82%;background:#F1F2F5;border-radius:18px;padding:11px 16px;font-size:15px;color:#1B1D2B}
+    .msg-ai{display:flex;gap:12px;align-items:flex-start;flex:1}
+    .ai-dot{flex:none;width:28px;height:28px;border-radius:50%;background:conic-gradient(from 200deg,#2F6FE4,#7B5CFF,#2BC4E6,#2F6FE4);box-shadow:inset 0 0 0 7px #fff}
+    .msg-ai .ans-text{font-size:15px;color:#2A2E40}
+    .dots{display:none;gap:5px;padding:9px 0}.dots.on{display:flex}.dots i{width:7px;height:7px;border-radius:50%;background:#B9BDCA;animation:blink 1s infinite}.dots i:nth-child(2){animation-delay:.15s}.dots i:nth-child(3){animation-delay:.3s}
+    @keyframes blink{50%{opacity:.25}}
+    .composer{display:flex;justify-content:space-between;align-items:center;border:1px solid #E1E3E9;border-radius:22px;padding:10px 10px 10px 18px;color:#9A9EAE;font-size:14px;box-shadow:0 4px 14px -8px rgba(15,22,48,.2)}
+    .composer b{display:grid;place-items:center;width:30px;height:30px;border-radius:50%;background:#1B1D2B;color:#fff;font-size:15px}
+    .check{position:absolute;right:-14px;bottom:44px;width:min(300px,80%);padding:14px;border-radius:16px;background:rgba(255,255,255,.92);backdrop-filter:blur(12px);box-shadow:0 24px 50px -20px rgba(15,22,48,.45),0 0 0 1px rgba(15,22,48,.08);display:grid;gap:8px;opacity:0;transform:translateY(10px);transition:opacity .5s,transform .5s}
+    .check.on{opacity:1;transform:none}
+    .check-h{font:600 12px var(--mono);color:var(--blue)}
+    .check .row{padding:8px 10px}
+    .demo .c-foot{padding:14px 2px 0}
+    @media(max-width:640px){.app{grid-template-columns:1fr}.side{display:none}.check{position:static;width:auto;margin-top:12px}.thread{padding:18px 16px 14px}}
     :focus-visible{outline:3px solid var(--blue);outline-offset:3px;border-radius:6px}
     @media(max-width:980px){
       .hero-grid,.report,.faq{grid-template-columns:1fr}
@@ -204,24 +230,31 @@
     <p class="fine">Free, in about a minute. No call, no card.</p>
   </div>
 
-  <div class="console" aria-label="Example AI answer">
-    <div class="c-top">
-      <div class="tabs" role="tablist">
-        <button class="tab" role="tab" aria-selected="true" data-view="before">Today</button>
-        <button class="tab" role="tab" aria-selected="false" data-view="after">With Vantry</button>
-      </div>
-      <span class="c-label">Example answer</span>
+  <div class="demo">
+    <div class="tabs" role="tablist" aria-label="Example">
+      <button class="tab" role="tab" aria-selected="true" data-view="before">Today</button>
+      <button class="tab" role="tab" aria-selected="false" data-view="after">With Vantry</button>
     </div>
-    <div class="c-body">
-      <div class="ask"><span class="who" aria-hidden="true">You</span><p>What's the best scheduling software for a small dental office?</p></div>
-      <div class="ans"><span class="who" aria-hidden="true"></span><p class="ans-text" id="ansText"></p></div>
-      <div class="scan" id="scan">
-        <div class="row"><span>Your company</span><b id="youState" class="miss">not mentioned</b></div>
-        <div class="row"><span>Named instead</span><b id="instead">Slotly, Bookwell, Chairly</b></div>
-        <div class="row"><span>Sources it trusted</span><b>review sites, "best of" lists</b></div>
+    <div class="chatapp" aria-label="Example of a buyer asking an AI chat assistant">
+      <div class="bar"><i></i><i></i><i></i><span class="url">AI chat</span></div>
+      <div class="app">
+        <aside class="side" aria-hidden="true">
+          <span class="newchat">+ New chat</span>
+          <span class="hist on">Dental office software</span><span class="hist">Payroll for 5 people</span><span class="hist">Best CRM for clinics</span><span class="hist">Email tools compared</span>
+        </aside>
+        <div class="thread">
+          <div class="msg-user">What's the best scheduling software for a small dental office?</div>
+          <div class="msg-ai"><span class="ai-dot" aria-hidden="true"></span><div><div class="dots" id="dots"><i></i><i></i><i></i></div><p class="ans-text" id="ansText"></p></div></div>
+          <div class="composer" aria-hidden="true"><span>Ask anything</span><b>↑</b></div>
+        </div>
       </div>
     </div>
-    <p class="c-foot">Made-up companies for illustration. Your free report shows real answers for your category.</p>
+    <div class="check" id="scan">
+      <span class="check-h">Vantry check</span>
+      <div class="row"><span>Your company</span><b id="youState" class="miss">not mentioned</b></div>
+      <div class="row"><span>Named instead</span><b id="instead">Slotly, Bookwell, Chairly</b></div>
+    </div>
+    <p class="c-foot">Example with made-up companies. Your free report shows real answers for your category.</p>
   </div>
 </div></section>
 
@@ -367,9 +400,11 @@
     // join "{Your company}" into one highlighted brand
     box.innerHTML = box.innerHTML.replace(/<span class="w">\{Your<\/span> <span class="w">company\}([^<]*)<\/span>/g, '<span class="w"><span class="brand you">Your company</span>$1</span>');
     youEl.textContent = v.you[0]; youEl.className = v.you[1]; insteadEl.textContent = v.instead;
-    var words = box.querySelectorAll(".w"), i = 0;
+    var words = box.querySelectorAll(".w"), i = 0, dots = document.getElementById("dots");
     if (reduce) { words.forEach(function (w) { w.classList.add("on"); }); scan.classList.add("on"); return; }
+    dots.classList.add("on");
     timer = setInterval(function () {
+      if (dots.classList.contains("on")) { if (++i < 12) return; i = 0; dots.classList.remove("on"); }
       if (i < words.length) { words[i++].classList.add("on"); return; }
       clearInterval(timer); scan.classList.add("on");
       if (auto && view === "before") setTimeout(function () { if (auto) select("after"); }, 3200);
