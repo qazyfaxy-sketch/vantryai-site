@@ -56,7 +56,10 @@ export async function queueStart(env, c) {
 
 function newJob(env, c, kind) {
   const engines = availableEngines(env);
-  return { kind, createdAt: Date.now(), engines, pairs: c.questions.flatMap((q) => engines.map((e) => [q, e])), next: 0, results: [] };
+  // Each question is asked more than once per engine: AI answers change from run to run, so one try is noisy.
+  const reps = Math.min(5, Math.max(1, parseInt(env.REPORT_REPEATS || "3", 10) || 1));
+  const pairs = Array.from({ length: reps }, () => c.questions.flatMap((q) => engines.map((e) => [q, e]))).flat();
+  return { kind, createdAt: Date.now(), engines, pairs, next: 0, results: [] };
 }
 
 // ---------------- The cron step ----------------

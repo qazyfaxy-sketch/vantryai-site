@@ -40,7 +40,8 @@ export function reportPage(audit, { plansUrl = "https://vantryai.com/ai/#plans" 
         .map((r) => {
           const label = esc(ENGINES[r.engine]?.label || r.engine);
           if (r.error) return `<div class="ans"><div class="ah"><strong>${label}</strong><span class="muted small">${esc(r.error)}</span></div></div>`;
-          const tag = r.mentioned ? `<span class="pill okp">${name} named</span>` : `<span class="pill badp">Not named</span>`;
+          const steady = r.runs > 1 ? ` <span class="muted small">(${r.hits} of ${r.runs} tries)</span>` : "";
+          const tag = (r.mentioned ? `<span class="pill okp">${name} named</span>` : `<span class="pill badp">Not named</span>`) + steady;
           const named = r.named.length ? `<p class="small"><span class="muted">Named instead:</span> ${r.named.slice(0, 6).map(esc).join(", ")}</p>` : "";
           const excerpt = r.text ? `<p class="ex">${esc(r.text.replace(/\s+/g, " ").slice(0, 320))}${r.text.length > 320 ? "…" : ""}</p>` : "";
           const srcs = r.sources.length ? `<p class="small muted">Sources: ${r.sources.slice(0, 5).map((x) => esc(x.domain)).join(" · ")}</p>` : "";

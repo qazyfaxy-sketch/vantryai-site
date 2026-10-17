@@ -165,6 +165,11 @@ On `/admin/prospects`, "Find contacts for me" takes company websites and reads o
 
 Growth clients get up to 2 posts a month (Pro 4), at least a week apart. For each, the timer picks a buyer question AI isn't naming them for (then the questions they told us), writes a 90-170 word post from their own website only, fact-checks it (no links, no "best", no engagement requests, at most 2 hashtags), and emails you a review link (`/ik/...`). On approval the client gets `/linkedin/:clientId` with the text, posts it from their own profile or company page, and pastes the post link (only real linkedin.com/posts, /feed/update or /pulse links are accepted). We never post, never use accounts, never ask for likes or engagement groups. `LINKEDIN_OFF="true"` stops it; `LINKEDIN_BUDGET` is clients per timer run (default 1).
 
+## Repeat runs and page refreshes
+
+- **Repeat runs.** Paid reports ask every question `REPORT_REPEATS` times per AI (default 3, max 5) and call it "named" only if it showed up in more than half the tries. Reports show "named in 2 of 3 tries". The free report stays at 1 try. Set `REPORT_REPEATS=1` to turn it off.
+- **Page refresh.** A live answer page that is `SITE_REFRESH_DAYS` old (default 90, `0` = off) gets a new fact-checked draft of the same question and web address. The old page stays live until you approve the new one (or `SITE_AUTO_PUBLISH=true`). It uses the normal `SITE_BUDGET`.
+
 ## Videos: one-time setup (about 30 minutes)
 
 1. **A YouTube channel for Vantry.** In YouTube, create a channel for your first category, e.g. "Dental Software Guide". Verify it with your phone (youtube.com/verify) so custom thumbnails work.

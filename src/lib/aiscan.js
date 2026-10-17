@@ -231,9 +231,31 @@ export async function askOne(env, engine, q, brand) {
 export async function finishAudit(env, { company, questions, engines, results, origin = "admin", email = "" }) {
   const answered = results.filter((r) => r.text);
   for (let i = 0; i < answered.length; i += 20) await extractNamed(env, answered.slice(i, i + 20), company);
+  results = collapseRuns(results);
   const audit = { id: `a${randomId(11)}`, createdAt: Date.now(), company, questions, engines, results, summary: summarize(results, engines), origin, email: String(email || "").slice(0, 120) };
   await saveAudit(env, audit);
   return audit;
+}
+
+// Several runs of the same question on the same engine become one row: named if it was named in most
+// runs, with "hits" of "runs" kept so reports can say how steady it is. One run passes through unchanged.
+export function collapseRuns(results) {
+  const groups = new Map();
+  for (const r of results) {
+    const k = `${r.engine}|${r.q}`;
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k).push(r);
+  }
+  return [...groups.values()].map((g) => {
+    if (g.length === 1) return g[0];
+    const ok = g.filter((r) => !r.error);
+    if (!ok.length) return g[0];
+    const hits = ok.filter((r) => r.mentioned).length;
+    const mentioned = hits * 2 > ok.length;
+    const rep = ok.find((r) => r.mentioned === mentioned) || ok[0];
+    const sources = [...new Map(ok.flatMap((r) => r.sources || []).map((s) => [s.domain, s])).values()].slice(0, 8);
+    return { ...rep, mentioned, cited: ok.some((r) => r.cited), sources, runs: ok.length, hits };
+  });
 }
 
 export function summarize(results, engines) {

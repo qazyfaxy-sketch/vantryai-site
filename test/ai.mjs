@@ -1,7 +1,7 @@
 // Tests for AI visibility reports, plans and onboarding, with fake AI engines, Stripe and email.
 // Run: node test/ai.mjs
 import worker from "../src/worker.js";
-import { brandTerms, isNamed, isCited, summarize } from "../src/lib/aiscan.js";
+import { brandTerms, isNamed, isCited, summarize, collapseRuns } from "../src/lib/aiscan.js";
 import { blockedBots, fixList } from "../src/lib/delivery.js";
 import { runClientDelivery } from "../src/ai.js";
 import { signPayload } from "../src/lib/stripe.js";
@@ -35,6 +35,21 @@ check(JSON.stringify(blockedBots("User-agent: GPTBot\nDisallow: /\n")) === '["GP
 check(blockedBots("User-agent: *\nDisallow: /\n").length === 6, "robots.txt: blocking everyone blocks every AI crawler");
 check(blockedBots("User-agent: *\nDisallow: /admin\n").length === 0, "robots.txt: blocking one folder isn't blocking AI");
 check(fixList({ reachable: true, blocked: ["GPTBot"], schema: false, llms: false, comparison: true, pricing: true, faqSchema: true, description: true }, { company: { website: "x.com" }, summary: { sources: [] }, results: [] })[0].title.includes("GPTBot"), "fix list puts blocked AI crawlers first");
+
+
+// ---------- repeat runs of the same question ----------
+const runsIn = [
+  { engine: "openai", q: "q", mentioned: true, cited: false, text: "a", named: ["X"], sources: [{ domain: "g2.com" }] },
+  { engine: "openai", q: "q", mentioned: false, cited: false, text: "b", named: ["Y"], sources: [{ domain: "reddit.com" }] },
+  { engine: "openai", q: "q", mentioned: true, cited: true, text: "c", named: ["Z"], sources: [{ domain: "g2.com" }] },
+  { engine: "gemini", q: "q", mentioned: false, cited: false, text: "d", named: [], sources: [] },
+  { engine: "gemini", q: "q", error: "x", text: "", named: [], sources: [] },
+];
+const col = collapseRuns(runsIn);
+check(col.length === 2 && col[0].mentioned === true && col[0].hits === 2 && col[0].runs === 3, "three tries become one row: named if named in most tries, with the count kept");
+check(col[0].sources.length === 2 && col[0].cited === true, "sources from every try are kept");
+check(col[1].mentioned === false && col[1].runs === 1 && !col[1].error, "a failed try doesn't count against the others");
+check(collapseRuns([runsIn[3]])[0] === runsIn[3], "a single try passes through unchanged");
 
 // ---------- fake services ----------
 const emails = [];
@@ -234,13 +249,13 @@ const tick = async () => { await runClientDelivery(env); };
 let c1 = cl();
 check(c1.questions.length === 4 && c1.questions[0] === "Does it text patients?" && c1.questions[1] === "Best dental scheduling app?", "tracked questions start with the client's own questions");
 check(c1.questions.length <= 25 && !c1.questions.some((q) => /chairside/i.test(q)), "AI fills the rest (Growth allows 25) and never uses their own name");
-check(c1.job && c1.job.pairs.length === 16 && c1.job.kind === "baseline", "the starting report is queued (questions x engines)");
+check(c1.job && c1.job.pairs.length === 48 && c1.job.kind === "baseline", "the starting report is queued (questions x engines x 3 tries each)");
 emails.length = 0;
 env.DELIVERY_BUDGET = "5";
 await tick();
 c1 = cl();
 check(c1.job.next === 5 && !(c1.audits || []).length, "big checks run in small pieces on the timer");
-await tick(); await tick(); await tick();
+for (let i = 0; i < 12 && cl().job; i++) await tick();
 c1 = cl();
 check(!c1.job && c1.audits.length === 1 && c1.audits[0].kind === "baseline", "the starting report finishes over a few timer runs");
 const startMail = emails.find((e) => e.to[0] === "owner@chairside.io");
@@ -257,7 +272,7 @@ check(emails.length === 0 && !cl().job, "nothing runs again until a month has pa
 // a month later, ChatGPT starts naming them
 let cc = cl(); cc.audits[0].at -= 31 * 86400000; store.set(`aic:${clientId}`, JSON.stringify(cc));
 chatgptNamesUs = true;
-env.DELIVERY_BUDGET = "20";
+env.DELIVERY_BUDGET = "20"; env.REPORT_REPEATS = "1";
 await tick();
 cc = cl();
 check(cc.audits.length === 2 && cc.audits[1].kind === "monthly", "a fresh report runs every 30 days");

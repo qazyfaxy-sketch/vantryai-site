@@ -2,7 +2,7 @@
 // The WordPress path is tested end to end against a real WordPress (see README).
 // Run: node test/site.mjs
 import worker from "../src/worker.js";
-import { buildSchema, buildLlms, cleanPage, rivalSites, slugify, seal, unseal } from "../src/lib/sitefix.js";
+import { buildSchema, buildLlms, cleanPage, rivalSites, stalePage, slugify, seal, unseal } from "../src/lib/sitefix.js";
 import { saveAudit } from "../src/lib/aiscan.js";
 import { runClientSite, saveClient, getClient } from "../src/ai.js";
 
@@ -150,6 +150,29 @@ check((await r.text()).includes("A new version is ready"), "Redo writes a new ve
 check(prompts.slice(-2)[0].user.includes("mention online booking first"), "the note goes into the new version");
 c = await getClient(env, "cgrowth00001");
 check(c.pages.find((x) => x.status === "redone") && c.pages.slice(-1)[0].kind === "compare", "old version marked redone, new comparison waiting");
+
+// ---------- stale pages get refreshed ----------
+c = await getClient(env, "cgrowth00001");
+for (const x of c.pages) if (x.status === "review") x.status = "skipped";
+const live1 = c.pages.find((x) => x.status === "live");
+check(!!live1, "there is a live page to refresh");
+live1.publishedAt = Date.now() - 100 * 86400000;
+c.nextPageAt = Date.now() + 86400000 * 30;
+await saveClient(env, c);
+const before = c.pages.length;
+await runClientSite(env);
+c = await getClient(env, "cgrowth00001");
+const draft = c.pages.slice(-1)[0];
+check(c.pages.length === before + 1 && draft.status === "review" && draft.q === live1.q, "a page live 100 days gets a fresh draft of the same question");
+check(draft.slug === live1.slug, "the update keeps the same web address");
+check(c.pages.find((x) => x.id === live1.id).status === "live", "the old page stays live until the update is approved");
+const rv4 = emails.filter((e) => e.subject.startsWith("Page ready")).slice(-1)[0].text.match(/https:\/\/api\.vantryai\.com(\/pg\/\S+)/)[1];
+await call(rv4.split("?")[0], form({ k: new URL(`https://x${rv4}`).searchParams.get("k"), action: "approve" }));
+c = await getClient(env, "cgrowth00001");
+check(c.pages.find((x) => x.id === live1.id).status === "replaced" && c.pages.find((x) => x.id === draft.id).status === "live", "approving swaps in the new version");
+check(!stalePage({}, c), "nothing is stale right after a refresh");
+c.pages.find((x) => x.id === draft.id).publishedAt = Date.now() - 100 * 86400000;
+check(stalePage({ SITE_REFRESH_DAYS: "0" }, c) === null, "SITE_REFRESH_DAYS=0 turns refreshing off");
 
 // ---------- admin ----------
 const adm = await (await call(`/admin/audits?token=${env.ADMIN_TOKEN}`)).text();

@@ -267,17 +267,17 @@ export async function nextPlan(env, c) {
   return null;
 }
 
-export async function makePage(env, c, saveClient, { note = "", plan: forced } = {}) {
+export async function makePage(env, c, saveClient, { note = "", plan: forced, replaces = null } = {}) {
   const plan = forced || (await nextPlan(env, c));
   if (!plan) throw new Error("Nothing new to write yet: every tracked question already has a page.");
   const content = await writePage(env, c, plan, note);
   if (!content) throw new Error("The page didn't come out right. Try again in a bit.");
-  const taken = new Set((c.pages || []).filter((p) => p.status !== "skipped" && p.status !== "redone").map((p) => p.slug));
+  const taken = new Set((c.pages || []).filter((p) => p.status !== "skipped" && p.status !== "redone" && p.id !== replaces).map((p) => p.slug));
   let slug = content.slug;
   for (let i = 2; taken.has(slug); i++) slug = `${content.slug}-${i}`;
-  const p = { id: `g${randomId(11)}`, clientId: c.id, kind: plan.kind, q: plan.question || null, rival: plan.rival?.name || null, rivalSite: plan.rival?.site || null, ...content, slug, status: "review", createdAt: Date.now(), attempts: 1 };
+  const p = { id: `g${randomId(11)}`, clientId: c.id, kind: plan.kind, q: plan.question || null, rival: plan.rival?.name || null, rivalSite: plan.rival?.site || null, ...content, slug, replaces, status: "review", createdAt: Date.now(), attempts: 1 };
   await savePage(env, p);
-  (c.pages ||= []).push({ id: p.id, at: p.createdAt, kind: p.kind, q: p.q, rival: p.rival, slug, title: p.title, status: "review" });
+  (c.pages ||= []).push({ id: p.id, at: p.createdAt, kind: p.kind, q: p.q, rival: p.rival, rivalSite: p.rivalSite, slug, title: p.title, status: "review" });
   c.pages = c.pages.slice(-120);
   await saveClient(env, c, `Page written: ${p.title}`);
   if (env.SITE_AUTO_PUBLISH === "true") {
@@ -315,7 +315,7 @@ export async function publishPage(env, p, c, saveClient) {
   const method = methodOf(c);
   if (method === "wordpress") {
     const guessUrl = `${c.site.wp.site.replace(/\/+$/, "")}/${p.slug}/`;
-    const r = await wpCall(env, c, "POST", "page", { vid: p.id, title: p.title, slug: p.slug, content: pageBody(co, p), description: p.metaDescription, schema: JSON.stringify(pageSchema(co, p, guessUrl)) });
+    const r = await wpCall(env, c, "POST", "page", { vid: p.replaces || p.id, title: p.title, slug: p.slug, content: pageBody(co, p), description: p.metaDescription, schema: JSON.stringify(pageSchema(co, p, guessUrl)) });
     p.url = r.url || guessUrl;
   } else if (method === "hub" && c.site.hub?.status === "active") {
     p.url = hubUrl(c, p.slug);
@@ -326,7 +326,13 @@ export async function publishPage(env, p, c, saveClient) {
   p.publishedAt = Date.now();
   await savePage(env, p);
   const row = (c.pages || []).find((x) => x.id === p.id);
-  if (row) Object.assign(row, { status: p.status, url: p.url, title: p.title });
+  if (row) Object.assign(row, { status: p.status, url: p.url, title: p.title, publishedAt: p.publishedAt });
+  if (p.replaces) {
+    const old = (c.pages || []).find((x) => x.id === p.replaces);
+    if (old) old.status = "replaced";
+    const oldRec = await getPage(env, p.replaces);
+    if (oldRec) await savePage(env, { ...oldRec, status: "replaced" });
+  }
   await saveClient(env, c, `Page ${p.status}: ${p.title}`);
   if (method !== "kit") await refreshFoundation(env, c, saveClient, { quiet: true }).catch((e) => console.log("llms refresh failed", e.message));
   const to = c.onboarding?.reportEmail || c.email;
@@ -467,6 +473,14 @@ export async function serveHub(env, host, url, getClient) {
 
 // ---------------- The cron step ----------------
 
+// A live page that hasn't been refreshed in SITE_REFRESH_DAYS (default 90) gets a fresh, fact-checked draft.
+export function stalePage(env, c) {
+  const days = parseInt(env.SITE_REFRESH_DAYS || "90", 10);
+  if (!days) return null;
+  const cutoff = Date.now() - days * 86400000;
+  return livePages(c).find((p) => (p.refreshedAt || p.publishedAt || p.at || Date.now()) < cutoff) || null;
+}
+
 export async function runSiteWork(env, { listClients, saveClient }) {
   if (env.SITE_WORK_OFF === "true" || !env.ANTHROPIC_API_KEY) return 0;
   let done = 0;
@@ -484,6 +498,13 @@ export async function runSiteWork(env, { listClients, saveClient }) {
         continue;
       }
       if (!(c.audits || []).length || (c.pages || []).some((x) => x.status === "review")) continue;
+      const stale = stalePage(env, c);
+      if (stale) {
+        stale.refreshedAt = Date.now();
+        done++;
+        await makePage(env, c, saveClient, { replaces: stale.id, note: "Update this page: keep it accurate to the website as it reads today.", plan: stale.kind === "compare" ? { kind: "compare", rival: { name: stale.rival, site: stale.rivalSite } } : { kind: "answer", question: stale.q } });
+        continue;
+      }
       if (Date.now() < (c.nextPageAt || 0)) continue;
       c.nextPageAt = Date.now() + Math.floor(MONTH / per);
       done++;
@@ -573,7 +594,7 @@ async function reviewPage(req, url, env, id, { getClient, saveClient }) {
         await savePage(env, p);
         const row = (c.pages || []).find((x) => x.id === p.id);
         if (row) row.status = "redone";
-        const np = await makePage(env, c, saveClient, { note, plan: p.kind === "compare" ? { kind: "compare", rival: { name: p.rival, site: p.rivalSite } } : { kind: "answer", question: p.q } });
+        const np = await makePage(env, c, saveClient, { note, replaces: p.replaces || null, plan: p.kind === "compare" ? { kind: "compare", rival: { name: p.rival, site: p.rivalSite } } : { kind: "answer", question: p.q } });
         np.attempts = (p.attempts || 1) + 1;
         await savePage(env, np);
         return html(page({ title: "Redoing", body: `<main><h1>Done.</h1><p class="lede">A new version is ready: <a href="${esc(await reviewUrl(env, np.id))}">read it</a>.</p></main>` }));
