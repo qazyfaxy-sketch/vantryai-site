@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#F1F7FF">
+  <title>Get Recommended by ChatGPT | Vantry</title>
+  <meta name="description" content="When buyers ask ChatGPT, Perplexity or Gemini for the best software in your category, do they hear your name? Get a free AI visibility report in about a minute. Done-for-you plans from $149/month, month to month.">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Does ChatGPT recommend you? Free AI visibility report">
+  <meta property="og:description" content="See who AI recommends when your buyers ask, and get named. Free report in about a minute.">
+  <meta property="og:url" content="https://vantryai.com/ai/">
+  <meta property="og:site_name" content="Vantry">
+  <link rel="canonical" href="https://vantryai.com/ai/">
+  <link rel="icon" type="image/png" href="/logo-mark.png"><link rel="apple-touch-icon" href="/logo-mark.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root{--navy:#141A3D;--indigo:#3B88DA;--pale:#F1F7FF;--ink:#1B1D33;--muted:#5D6080;--line:#D5DFED;--ok:#1F7A4D;--bad:#9B203F;--serif:'Fraunces',Georgia,serif;--sans:'Inter',Arial,sans-serif}
+    *,*::before,*::after{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:96px}
+    body{margin:0;background:#FBFCFF;color:var(--ink);font:16px/1.6 var(--sans)}
+    a{color:#2E6FC0;font-weight:600}
+    .container{width:min(1080px,calc(100% - 32px));margin-inline:auto}
+    h1,h2,h3,p{margin-top:0}h1,h2{font-family:var(--serif);font-weight:400;line-height:1.1;letter-spacing:-1.6px}
+    h2{font-size:clamp(30px,3.6vw,42px)}h3{font-size:18px;margin-bottom:6px}
+    .muted{color:var(--muted)}.small{font-size:13px}
+    .header{position:sticky;top:0;z-index:20;background:rgba(251,252,255,.94);border-bottom:1px solid #E4E8F3;backdrop-filter:blur(16px)}
+    .nav{display:flex;align-items:center;justify-content:space-between;gap:16px;min-height:72px}
+    .brand-logo{display:block;width:115px;height:36px;object-fit:contain}
+    .nav-links{display:flex;align-items:center;gap:22px}.nav-links a{color:var(--ink);font-size:14px;text-decoration:none;font-weight:500}
+    @media(max-width:760px){.nav-links a:not(.jelly){display:none}}
+    .jelly{position:relative;isolation:isolate;overflow:hidden;display:inline-flex;align-items:center;justify-content:center;min-height:54px;padding:14px 30px;border:0;border-radius:999px;background:linear-gradient(180deg,#6BACFF 0%,#4594F6 52%,#2F7DDE 100%);color:#fff!important;font:600 16px/1.2 var(--sans);text-decoration:none;text-shadow:0 1px 1px #13498D80;cursor:pointer;box-shadow:inset 0 1px 0 #FFFFFFB8,inset 0 -4px 7px #185FB488,0 12px 26px -8px #4594F6B3,0 0 0 4px #B0D1F738;transition:transform .18s,filter .18s}
+    .jelly:hover{transform:translateY(-2px);filter:brightness(1.06)}.jelly:disabled{opacity:.65;cursor:wait;transform:none}
+    .jelly.sm{min-height:42px;padding:9px 18px;font-size:14px}.jelly.block{display:flex;width:100%}
+    .hero{padding:56px 0 64px;background:radial-gradient(ellipse at 50% 70%,#D5DFFA 0%,#E7EDFD 37%,#F3F7FF 65%,#FBFCFF 100%)}
+    .hero-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:48px;align-items:center}
+    .hero h1{font-size:clamp(40px,5vw,62px);margin-bottom:18px}
+    .hero .sub{font-size:18px;color:var(--muted);max-width:540px}
+    .proof{margin:24px 0 0;padding:0;list-style:none;display:grid;gap:8px;font-size:15px}
+    .proof li::before{content:"✓";color:var(--ok);font-weight:700;margin-right:8px}
+    .card{background:#fff;border:1px solid var(--line);border-radius:22px;padding:clamp(20px,4vw,28px);box-shadow:0 14px 34px #222C5C12}
+    .form h2{font-size:26px;letter-spacing:-.8px;margin-bottom:4px}
+    label{display:block;font-weight:600;font-size:14px;margin-top:14px}
+    input[type=text],input[type=email]{width:100%;min-height:50px;margin-top:6px;border:1px solid #B9C3D1;border-radius:12px;padding:12px 14px;font:16px var(--sans);background:#fff;color:var(--ink)}
+    .hp{position:absolute;left:-9999px}
+    .msg{margin-top:12px;font-size:14px}.msg.bad{color:var(--bad)}
+    .wait{display:none;margin-top:14px;padding:14px;border-radius:14px;background:var(--pale);font-size:14px}
+    .section{padding-block:76px}.intro{max-width:640px;margin-bottom:34px}.intro p{color:var(--muted)}
+    .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:28px}
+    .step{border-top:1px solid var(--line);padding-top:20px}
+    .step b{display:grid;place-items:center;width:36px;height:36px;border-radius:11px;background:var(--pale);color:var(--indigo);margin-bottom:12px}
+    .fix{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+    .fix div{border:1px solid var(--line);border-radius:16px;padding:18px;background:#fff}
+    .alt{background:linear-gradient(150deg,#FBFCFF,#ECF3FF)}
+    .plans{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;align-items:stretch}
+    .plan{display:flex;flex-direction:column}.plan.best{border:2px solid #7FB2F0}
+    .plan .tag{align-self:flex-start;font-size:12px;font-weight:600;color:var(--indigo);background:var(--pale);border-radius:999px;padding:3px 10px;margin-bottom:10px}
+    .price{font:400 46px/1 var(--serif);letter-spacing:-1.5px;margin:6px 0 2px}.price span{font:500 15px var(--sans);color:var(--muted);letter-spacing:0}
+    .plan ul{padding-left:20px;margin:14px 0 22px;flex:1}.plan li{margin-bottom:6px}
+    .terms{margin-top:22px;text-align:center}
+    .promises{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+    .promises div{border-left:3px solid #7FB2F0;padding:6px 0 6px 14px}
+    details{border-bottom:1px solid var(--line);padding:16px 0}summary{cursor:pointer;font-weight:600;list-style:none}summary::-webkit-details-marker{display:none}
+    details p{margin:10px 0 0;color:var(--muted)}
+    footer{border-top:1px solid #E4E8F3;padding:34px 0;font-size:13px;color:var(--muted)}
+    footer .container{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}footer a{color:var(--muted);margin-right:16px}
+    :focus-visible{outline:3px solid var(--indigo);outline-offset:3px}
+    @media(max-width:900px){.hero-grid,.plans,.steps,.promises{grid-template-columns:1fr}.fix{grid-template-columns:1fr}}
+    @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{transition:none!important}}
+  </style>
+</head>
+<body>
+<header class="header"><div class="container nav">
+  <a href="/" aria-label="Vantry home"><img class="brand-logo" src="/logo.png" srcset="/logo.png 1x, /logo@2x.png 2x" width="640" height="200" alt="Vantry"></a>
+  <nav class="nav-links" aria-label="Main navigation"><a href="#how">How it works</a><a href="#plans">Plans</a><a href="#faq">FAQ</a><a class="jelly sm" href="#report">Get my free report</a></nav>
+</div></header>
+
+<main id="main">
+<section class="hero"><div class="container hero-grid">
+  <div>
+    <h1>When buyers ask ChatGPT, does it name you?</h1>
+    <p class="sub">More and more buyers ask AI which software to use. If it names your competitors and not you, you never even hear about the sale you lost.</p>
+    <ul class="proof">
+      <li>See exactly what ChatGPT, Perplexity and Gemini tell your buyers</li>
+      <li>See who they recommend instead, and which sites they trust</li>
+      <li>Free, in about a minute. No call, no card.</li>
+    </ul>
+  </div>
+  <form class="card form" id="report" novalidate>
+    <h2>Get your free report</h2>
+    <p class="muted small">We ask AI the questions your buyers ask, then show you the answers.</p>
+    <label>Business name<input type="text" name="name" required autocomplete="organization"></label>
+    <label>Website<input type="text" name="website" required placeholder="yourcompany.com" inputmode="url"></label>
+    <label>What you sell<input type="text" name="category" required placeholder="scheduling software for dental offices"></label>
+    <label>Who buys it <span class="muted">(optional)</span><input type="text" name="audience" placeholder="small dental practices"></label>
+    <label>Your email<input type="email" name="email" required autocomplete="email"></label>
+    <input class="hp" type="text" name="company" tabindex="-1" autocomplete="off" aria-hidden="true">
+    <p style="margin:18px 0 0"><button class="jelly block" type="submit">Get my free report</button></p>
+    <div class="wait" role="status">Asking the AI engines your buyers' questions. This takes about 30 to 60 seconds, so keep this page open.</div>
+    <p class="msg" aria-live="polite"></p>
+  </form>
+</div></section>
+
+<section class="section" id="how"><div class="container">
+  <div class="intro"><h2>How it works</h2><p>AI recommends the businesses it reads about on sites it trusts. We change what it reads about you.</p></div>
+  <div class="steps">
+    <div class="step"><b>1</b><h3>We check</h3><p class="muted">We ask AI the questions your buyers ask and record who it names, and which sites it cites.</p></div>
+    <div class="step"><b>2</b><h3>We fix</h3><p class="muted">We fix what AI reads about you: your site, the lists and directories it cites, and clear answers to buyer questions.</p></div>
+    <div class="step"><b>3</b><h3>You see it</h3><p class="muted">Every month you get a report like your free one, so you can see each new answer that names you.</p></div>
+  </div>
+</div></section>
+
+<section class="section alt"><div class="container">
+  <div class="intro"><h2>What we work on</h2><p>Done for you, with AI doing most of the work and a person checking all of it.</p></div>
+  <div class="fix">
+    <div><h3>Your website, readable by AI</h3><p class="muted">Clear pages for what you do, who it's for, pricing and comparisons, plus the behind-the-scenes details AI reads.</p></div>
+    <div><h3>The sites AI trusts</h3><p class="muted">Getting you listed accurately on the directories, review sites and "best of" lists that AI cites for your category.</p></div>
+    <div><h3>Answers to buyer questions</h3><p class="muted">Pages that answer the exact questions buyers ask AI, written for people first.</p></div>
+    <div><h3>A monthly report</h3><p class="muted">Which AI answers name you, which name competitors, and what we changed that month.</p></div>
+  </div>
+</div></section>
+
+<section class="section" id="plans"><div class="container">
+  <div class="intro"><h2>Plans</h2><p>Month to month. No contracts and no calls.</p></div>
+  <div class="plans">
+    <div class="card plan">
+      <h3>Starter</h3><p class="price">$149<span>/month</span></p><p class="muted small">For teams who want to do the fixes themselves.</p>
+      <ul><li>Monthly AI visibility report</li><li>Tracking for up to 10 buyer questions</li><li>A clear monthly fix list, in priority order</li></ul>
+      <button class="jelly block" data-plan="starter">Start Starter</button>
+    </div>
+    <div class="card plan best">
+      <span class="tag">Most popular</span>
+      <h3>Growth</h3><p class="price">$497<span>/month</span></p><p class="muted small">Done for you.</p>
+      <ul><li>Everything in Starter</li><li>Tracking for up to 25 buyer questions</li><li>We make the fixes every month</li><li>Listings on the sites AI cites</li></ul>
+      <button class="jelly block" data-plan="growth">Start Growth</button>
+    </div>
+    <div class="card plan">
+      <h3>Pro</h3><p class="price">$997<span>/month</span></p><p class="muted small">Done for you, more coverage.</p>
+      <ul><li>Everything in Growth</li><li>Tracking for up to 50 buyer questions</li><li>Comparison and answer pages written for you</li><li>Faster turnaround</li></ul>
+      <button class="jelly block" data-plan="pro">Start Pro</button>
+    </div>
+  </div>
+  <p class="terms muted small">First month money-back. If you're not named in at least one new AI answer within 60 days, your next month is free. We email you 3 days before every renewal, and you can cancel any time.</p>
+  <p class="msg plans-msg" aria-live="polite" style="text-align:center"></p>
+</div></section>
+
+<section class="section alt"><div class="container">
+  <div class="intro"><h2>Our promises</h2></div>
+  <div class="promises">
+    <div><h3>No fake promises</h3><p class="muted">Nobody can honestly guarantee a spot in AI answers, so we won't. We show you every change instead.</p></div>
+    <div><h3>No fake proof</h3><p class="muted">No fake reviews, fake accounts or made-up posts. Ever. It's wrong, and it can get you penalized.</p></div>
+    <div><h3>No surprise charges</h3><p class="muted">A reminder 3 days before every renewal, cancel any time, and a refund if your first month isn't worth it.</p></div>
+  </div>
+</div></section>
+
+<section class="section" id="faq"><div class="container">
+  <div class="intro"><h2>Questions</h2></div>
+  <details><summary>Can you guarantee ChatGPT will recommend us?</summary><p>No, and be careful with anyone who says they can. AI answers change and differ from person to person. What we promise is the work, a monthly report of exactly what changed, and your next month free if nothing new names you within 60 days.</p></details>
+  <details><summary>How long until we see changes?</summary><p>Often 30 to 60 days for the first new answers, because AI has to pick up the changes on the sites it reads. Your first fixes start in week 1.</p></details>
+  <details><summary>Do I need to get on a call?</summary><p>No. After you sign up you fill in a short form, about 5 minutes. Everything else happens by email.</p></details>
+  <details><summary>How do you check what AI says?</summary><p>We ask each AI your buyers' questions through its official service with web search turned on, and save the answers. The apps can answer a little differently for different people, so each report says when it was checked.</p></details>
+  <details><summary>Which AI tools do you cover?</summary><p>ChatGPT, Perplexity, Gemini and Claude, depending on your plan and what your buyers use.</p></details>
+  <details><summary>Can I cancel any time?</summary><p>Yes. Plans are month to month. We email you 3 days before every renewal, and you can cancel in one click or by replying to any email.</p></details>
+</div></section>
+</main>
+
+<footer><div class="container"><span>© <span id="year">2026</span> Vantry. Questions? <a href="mailto:booking@vantryai.com">booking@vantryai.com</a></span><span><a href="/terms.html">Terms</a><a href="/privacy.html">Privacy</a><a href="/refund.html">Refund Policy</a></span></div></footer>
+
+<script>
+(function () {
+  var API = "https://api.vantryai.com";
+  document.getElementById("year").textContent = new Date().getFullYear();
+
+  var form = document.getElementById("report");
+  var msg = form.querySelector(".msg"), wait = form.querySelector(".wait"), btn = form.querySelector("button");
+  form.addEventListener("submit", function (e) {
+    e.preventDefault();
+    var d = Object.fromEntries(new FormData(form));
+    if (!d.name || !d.website || !d.category || !d.email) { msg.className = "msg bad"; msg.textContent = "Please fill in your business name, website, what you sell and your email."; return; }
+    btn.disabled = true; btn.textContent = "Checking AI answers…"; wait.style.display = "block"; msg.textContent = "";
+    fetch(API + "/api/report", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(d) })
+      .then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || "Something went wrong."); return j; }); })
+      .then(function (j) { try { localStorage.setItem("vantryReport", j.url.split("/r/")[1]); } catch (e) {} window.location.href = j.url; })
+      .catch(function (err) { msg.className = "msg bad"; msg.textContent = err.message; btn.disabled = false; btn.textContent = "Get my free report"; wait.style.display = "none"; });
+  });
+
+  var plansMsg = document.querySelector(".plans-msg");
+  document.querySelectorAll("[data-plan]").forEach(function (b) {
+    b.addEventListener("click", function () {
+      var label = b.textContent, reportId = null;
+      try { reportId = localStorage.getItem("vantryReport"); } catch (e) {}
+      b.disabled = true; b.textContent = "Opening checkout…";
+      fetch(API + "/api/ai/checkout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ plan: b.dataset.plan, reportId: reportId }) })
+        .then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || "Something went wrong."); return j; }); })
+        .then(function (j) { window.location.href = j.url; })
+        .catch(function (err) { plansMsg.className = "msg bad plans-msg"; plansMsg.textContent = err.message; b.disabled = false; b.textContent = label; });
+    });
+  });
+})();
+</script>
+</body>
+</html>
