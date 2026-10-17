@@ -184,22 +184,24 @@ export function blockedBots(robots) {
 export function fixList(site, audit) {
   const fixes = [];
   const add = (title, why) => fixes.push({ title, why });
-  if (site && !site.reachable) add("Make sure your website loads for AI tools", `We couldn't load ${site.base}. If AI can't read your site, it can't recommend you.`);
-  if (site?.reachable) {
-    if (site.blocked.length) add(`Let AI tools read your site (now blocked: ${site.blocked.join(", ")})`, "Your robots.txt tells these AI crawlers to stay out, so they can't learn about you. Allow them.");
-    if (!site.schema) add("Add structured data (schema) to your homepage", "A small block of code that tells AI exactly who you are, what you sell and for whom.");
-    if (!site.llms) add("Add an llms.txt file", "A plain summary of your business at yoursite.com/llms.txt that AI tools can read quickly.");
-    if (!site.comparison) add("Publish comparison pages (you vs. the companies AI names)", "Buyers ask AI for alternatives and comparisons. Clear, fair comparison pages give AI something to cite.");
-    if (!site.pricing) add("Publish a clear pricing page", "AI answers often mention price. Without a pricing page, AI guesses or skips you.");
-    if (!site.faqSchema) add("Answer buyer questions on your site, with FAQ markup", "Write short, honest answers to the exact questions buyers ask AI, and mark them up as an FAQ.");
-    if (!site.description) add("Write a clear meta description for your homepage", "One sentence on what you do and for whom. AI and search engines read it.");
-  }
+  if (site && !site.reachable) add("Make sure your website loads for AI tools", `We couldn't load ${site.base}. If AI can't read your site, it can't learn about you.`);
+  if (site?.reachable && site.blocked.length) add(`Let AI tools read your site (now blocked: ${site.blocked.join(", ")})`, "Your robots.txt tells these AI crawlers to stay out, so they can't learn about you. Allow them.");
+  // Most evidence: AI tends to repeat what trusted third-party sites say. Studies link this to being named more (a pattern, not a guarantee).
   const s = audit.summary;
   const notCited = s.sources.filter((x) => !x.name.endsWith(brandTerms("", audit.company.website).host || "~")).slice(0, 4).map((x) => x.name);
-  if (notCited.length) add(`Get listed accurately on the sites AI trusts: ${notCited.join(", ")}`, "These are the sites AI cited for your buyers' questions. Being on them, with honest reviews and correct details, is how AI finds you.");
+  if (notCited.length) add(`Get listed accurately on the sites AI trusts: ${notCited.join(", ")}`, "These are the sites AI cited for your buyers' questions. AI tends to repeat what trusted sites say, and studies link being mentioned on them with being named more. It's a pattern, not a guarantee. Use accurate details and only real reviews.");
   const missed = audit.results.filter((r) => !r.error && !r.mentioned && r.named.length).slice(0, 3);
-  for (const r of missed) add(`Answer "${r.q}"`, `${r.named.slice(0, 3).join(", ")} ${r.named.length > 1 ? "were" : "was"} named instead. A clear page answering this question gives AI a reason to include you.`);
-  return fixes.slice(0, 8);
+  for (const r of missed) add(`Answer "${r.q}"`, `${r.named.slice(0, 3).join(", ")} ${r.named.length > 1 ? "were" : "was"} named instead. A clear, honest page answering this question gives search engines and AI something to use.`);
+  if (site?.reachable) {
+    if (!site.comparison) add("Publish comparison pages (you vs. the companies AI names)", "Buyers ask AI for alternatives and comparisons. Clear, fair comparison pages give them something to cite.");
+    if (!site.pricing) add("Publish a clear pricing page", "AI answers often mention price. Without a pricing page, AI may guess or skip you.");
+    if (!site.faqSchema) add("Answer buyer questions on your site", "Write short, honest answers to the exact questions buyers ask AI. Original, useful answers are what search engines, including Google's AI features, reward.");
+    if (!site.description) add("Write a clear meta description for your homepage", "One sentence on what you do and for whom. Search engines read it.");
+    // Basics: cheap and tidy, but tests have not shown they make AI name you more. Listed last, and said plainly.
+    if (!site.schema) add("Add structured data (schema) to your homepage (a basic)", "Good housekeeping that helps search engines read your basics. Tests haven't shown it makes AI name you more, so don't expect it to move results on its own.");
+    if (!site.llms) add("Add an llms.txt file (a basic)", "A plain summary of your business at yoursite.com/llms.txt. Google says it isn't needed and studies haven't found it changes citations. It's cheap, but optional.");
+  }
+  return fixes.slice(0, 10);
 }
 
 // ---------------- Emails ----------------
