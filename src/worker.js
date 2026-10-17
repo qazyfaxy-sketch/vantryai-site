@@ -41,7 +41,7 @@ import { runMonthlyReports } from "./lib/reports.js";
 import { startNurture, runNurture, unsubscribe } from "./lib/nurture.js";
 import { plusOn, plusView, onPlusStarted, onPlusEnded, onLead, chat, siteForNumber, onMissedCall, onIncomingText, settingsOf, bump } from "./plus.js";
 import { verifyTwilio, twiml, say, dial, toE164 } from "./lib/twilio.js";
-import { isAiPath, aiRoute, aiAdmin, onAiStarted, onAiEnded, onInvoiceUpcoming, runClientDelivery } from "./ai.js";
+import { isAiPath, aiRoute, aiAdmin, onAiStarted, onAiEnded, onInvoiceUpcoming, runClientDelivery, runClientVideos } from "./ai.js";
 
 const MAX_PREVIEWS_PER_EMAIL = 2;
 const MAX_PREVIEWS_PER_IP_HOUR = 6;
@@ -77,6 +77,7 @@ export default {
     ctx.waitUntil(runNurture(env).catch((e) => console.log("Follow-ups failed", e.message)));
     ctx.waitUntil(runMonthlyReports(env).catch((e) => console.log("Monthly reports failed", e.message)));
     ctx.waitUntil(runClientDelivery(env).catch((e) => console.log("AI client delivery failed", e.message)));
+    ctx.waitUntil(runClientVideos(env).catch((e) => console.log("Client videos failed", e.message)));
   },
 };
 
@@ -518,7 +519,7 @@ async function admin(req, url, env) {
   }
   if (!safeEqual(token, env.ADMIN_TOKEN)) throw httpError(404, "Page not found.");
   const noStore = { "Cache-Control": "no-store", "X-Robots-Tag": "noindex" };
-  if (url.pathname === "/admin/audits" || url.pathname === "/admin/audit") return await aiAdmin(req, url, env, form, token);
+  if (url.pathname === "/admin/audits" || url.pathname === "/admin/audit" || url.pathname === "/admin/video" || url.pathname.startsWith("/admin/youtube")) return await aiAdmin(req, url, env, form, token);
 
   let m;
   if (req.method === "GET" && (m = url.pathname.match(/^\/admin\/site\/(o[a-z0-9]{12})$/))) {

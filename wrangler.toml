@@ -55,6 +55,12 @@ TWILIO_MESSAGING_SERVICE_SID = ""  # Twilio Messaging Service that passed US car
 AUDIT_DAILY_CAP = "20"     # most free reports per day (cost guard)
 AUDIT_ENGINES = ""         # leave empty to use every engine with a key, or e.g. "openai,perplexity"
 STRIPE_PORTAL_LINK = ""    # Stripe > Settings > Billing > Customer portal > login link (one-click cancel)
+# YouTube videos for Growth and Pro clients (see README "Videos").
+VIDEO_AUTO_PUBLISH = "false" # "true" publishes without waiting for your Approve click
+VIDEO_CHANNEL = "main"       # which connected YouTube channel new videos go to
+VIDEO_BUDGET = "1"           # new videos started per 10-minute timer run
+ELEVENLABS_VOICE_ID = ""     # optional; empty uses the default narrator voice
+# Secrets: GH_DISPATCH_TOKEN, VIDEO_SECRET, YT_CLIENT_ID, YT_CLIENT_SECRET
 
 # Secrets: never put these in this file. Add each one with
 #   npx wrangler secret put NAME

@@ -17,11 +17,12 @@ import { sendEmail } from "./lib/email.js";
 import { reportPage } from "./pages/report.js";
 import { page } from "./pages/shell.js";
 import { queueStart, runDelivery, QUESTION_LIMIT } from "./lib/delivery.js";
+import { isVideoPath, videoRoute, videoAdmin, videoCard, runVideos } from "./lib/video.js";
 
 export const AI_PLANS = {
   starter: { label: "Starter", cents: 14900, line: "AI visibility tracking + a monthly fix list" },
-  growth: { label: "Growth", cents: 49700, line: "Done for you: we make the fixes every month" },
-  pro: { label: "Pro", cents: 99700, line: "Done for you, more buyer questions, faster work" },
+  growth: { label: "Growth", cents: 49700, line: "Done for you: monthly fixes plus 2 YouTube videos a month" },
+  pro: { label: "Pro", cents: 99700, line: "Done for you: 50 buyer questions plus 4 YouTube videos a month" },
 };
 
 const PUBLIC_REPORTS_PER_IP_DAY = 3;
@@ -38,12 +39,13 @@ const cancelText = (env) =>
 const sign = "Thanks,\nVince\nVantry · vantryai.com";
 
 export function isAiPath(p) {
-  return p === "/api/report" || p === "/api/audit/batch" || p === "/api/ai/checkout" || /^\/r\/a[a-z0-9]{11}$/.test(p) || /^\/ai\/welcome\/c[a-z0-9]{11}$/.test(p) || /^\/start\/c[a-z0-9]{11}$/.test(p);
+  return isVideoPath(p) || p === "/api/report" || p === "/api/audit/batch" || p === "/api/ai/checkout" || /^\/r\/a[a-z0-9]{11}$/.test(p) || /^\/ai\/welcome\/c[a-z0-9]{11}$/.test(p) || /^\/start\/c[a-z0-9]{11}$/.test(p);
 }
 
 export async function aiRoute(req, url, env, cors) {
   const p = url.pathname;
   let m;
+  if (isVideoPath(p)) return await videoRoute(req, url, env, { getClient, saveClient });
   if (req.method === "POST" && p === "/api/report") return json(await freeReport(req, env, url), 200, cors);
   if (req.method === "POST" && p === "/api/audit/batch") return json(await batch(req, env, url));
   if (req.method === "POST" && p === "/api/ai/checkout") return json(await checkout(req, env, url), 200, cors);
@@ -301,7 +303,8 @@ async function onboarding(req, env, id) {
 // ---------------- Admin: run reports by hand ----------------
 
 export async function aiAdmin(req, url, env, form, token) {
-  let flash = "";
+  if (url.pathname.startsWith("/admin/youtube") || url.pathname === "/admin/video") return await videoAdmin(req, url, env, form, token, { getClient, saveClient });
+  let flash = String(url.searchParams.get("flash") || "").slice(0, 400);
   if (req.method === "POST" && url.pathname === "/admin/audit") {
     try {
       const questions = String(form.get("questions") || "").split("\n").map((s) => s.trim()).filter(Boolean);
@@ -326,6 +329,7 @@ ${flash ? `<p class="card ok"><strong>${esc(flash)}</strong></p>` : ""}
 <label>Questions (optional, one per line; leave empty and AI writes 3)<textarea name="questions" rows="3"></textarea></label>
 <button class="jelly sm">Run report</button></form>
 <div class="card"><h2>Clients</h2>${clients.length ? `<table><tr><th>Email</th><th>Plan</th><th>Status</th><th>Onboarding</th><th>Latest report</th></tr>${clients.map((c) => { const a = (c.audits || []).slice(-1)[0]; return `<tr><td>${esc(c.email || "-")}</td><td>${esc(AI_PLANS[c.plan]?.label || c.plan)}</td><td>${esc(c.status)}</td><td>${c.onboardedAt ? "Done" : `<a href="/start/${c.id}">Link</a>`}</td><td>${c.job ? `Checking: ${c.job.next} of ${c.job.pairs.length}` : a ? `<a href="/r/${a.id}" target="_blank" rel="noopener">${a.mentioned}/${a.total}</a>` : "-"}${c.promise ? `<br><span class="small muted">60-day: ${c.promise.kept ? "kept" : c.promise.freeMonth ? "free month given" : "needs you"}</span>` : ""}</td></tr>`; }).join("")}</table>` : '<p class="muted">No clients yet.</p>'}</div>
+${await videoCard(env, clients, token)}
 <div class="card"><h2>Recent reports</h2>${audits.length ? `<table><tr><th>Business</th><th>Named</th><th>From</th><th>When</th></tr>${audits.slice(0, 60).map((a) => `<tr><td><a href="/r/${a.id}" target="_blank" rel="noopener">${esc(a.name)}</a>${a.email ? `<br><span class="small muted">${esc(a.email)}</span>` : ""}</td><td>${esc(a.score)}</td><td>${esc(a.origin)}</td><td class="small">${new Date(a.at).toLocaleString("en-US", { timeZone: "America/New_York" })}</td></tr>`).join("")}</table>` : '<p class="muted">No reports yet.</p>'}</div>
 <p><a href="/admin?token=${t}">Back to website orders</a></p>
 </main>
@@ -336,3 +340,5 @@ table{border-collapse:collapse;width:100%;font-size:14px}th{text-align:left;font
 
 // Cron: starting reports, monthly reports, fix lists and the 60-day promise.
 export const runClientDelivery = (env) => runDelivery(env, { listClients, saveClient });
+// Cron: YouTube videos for Growth and Pro clients.
+export const runClientVideos = (env) => runVideos(env, { listClients, saveClient });

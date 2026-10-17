@@ -71,6 +71,8 @@ Code: `src/ai.js`, `src/lib/aiscan.js`, `src/pages/report.js`.
 7. **60-day promise:** at day 60, if no answer names them that didn't at the start, a one-time 100% Stripe discount is added to their subscription and both of you get an email.
 8. **Cancel:** set `STRIPE_PORTAL_LINK` for one-click cancel; without it the email says "reply and we'll cancel it the same day".
 
+9. **YouTube videos (Growth: 2 a month, Pro: 4).** Code: `src/lib/video.js` (planning, scripts, review) and `video/render.py` (making the video, run by GitHub Actions for free). The cron picks a buyer question AI isn't naming the client for, reads their website, writes a script from it, then a second AI pass removes anything their website doesn't back up. GitHub renders it: their real pages scrolling in a browser window, an ElevenLabs voice, captions, chapters and a thumbnail. Then it uploads to YouTube as **private**, marked as a paid promotion, with "This video is sponsored by..." spoken first and written first in the description. You get an email: **Approve** (it goes public and the client gets the link), **Redo** (with a note) or **Skip**. The admin page has **Make a video now**.
+
 **Your tools:** `https://api.vantryai.com/admin/audits?token=YOUR_ADMIN_TOKEN` runs a report by hand and lists reports and clients.
 
 **Outreach reports in bulk:** `POST /api/audit/batch` with `Authorization: Bearer YOUR_ADMIN_TOKEN` and `{"companies":[{"name","website","category","audience"}],"questionCount":3,"engines":["openai","perplexity"]}`. Each row returns the report link, the score, the first question, which AI answered it and who it named instead: everything an outreach email needs. Batches are sized to Cloudflare's per-request limit.
@@ -82,13 +84,30 @@ Code: `src/ai.js`, `src/lib/aiscan.js`, `src/pages/report.js`.
 - `AUDIT_DAILY_CAP` (default 20) limits free reports per day so AI costs can't run away.
 - Refunds for the first-month promise: Stripe > Payments > the payment > Refund.
 
+## Videos: one-time setup (about 30 minutes)
+
+1. **A YouTube channel for Vantry.** In YouTube, create a channel for your first category, e.g. "Dental Software Guide". Verify it with your phone (youtube.com/verify) so custom thumbnails work.
+2. **Google Cloud** (console.cloud.google.com, free): create a project, then turn on **YouTube Data API v3**.
+   - Under **Google Auth Platform**, set it up as External, then set the publishing status to **In production**. In "Testing" mode, Google signs you out every 7 days.
+   - Create an **OAuth client**, type **Web application**, with the redirect URL `https://api.vantryai.com/youtube/callback`.
+   - Run `npx wrangler secret put YT_CLIENT_ID`, then `npx wrangler secret put YT_CLIENT_SECRET`, pasting each value when it asks.
+3. **Apply for YouTube's API audit right away** (free, a few weeks): the "YouTube API Services - Audit and Quota Extension Form". Until YouTube approves it, videos uploaded through the API stay locked as private. Meanwhile, each review email links the finished file, and you upload it in YouTube Studio (about 2 minutes) and paste the link back.
+4. **A shared password for the renderer.** Make up a long random one. Save it with `npx wrangler secret put VIDEO_SECRET`, and also in GitHub: the repo's Settings, then Secrets and variables, then Actions, then **New secret**, named `VIDEO_SECRET`.
+5. **ElevenLabs.** In the same GitHub page, add a secret named `ELEVENLABS_API_KEY`.
+6. **Let the engine start GitHub.** In GitHub, go to Settings (your account), then Developer settings, then Fine-grained tokens. Make a token for only this repo with **Contents: Read and write**. Save it with `npx wrangler secret put GH_DISPATCH_TOKEN`.
+7. **Connect the channel.** Open `https://api.vantryai.com/admin/audits?token=YOUR_ADMIN_TOKEN`, then press **Connect YouTube** in the Videos card and sign in with the channel's Google account.
+
+Limits to know:
+- YouTube's free API allowance is about 4 to 5 uploads a day. Ask for more on the same audit form.
+- GitHub Actions is free for this public repo, so the render logs and files are visible to logged-in GitHub users. They hold the same public website content the video shows.
+
 ## Deploys
 
 Cloudflare builds and deploys automatically on every push to the `engine` branch.
 
 ## Test
 
-`npm test` runs every end-to-end check with fake AI, Stripe, Cloudflare and email (`test/run.mjs` for websites and Plus, `test/ai.mjs` for AI visibility).
+`npm test` runs every end-to-end check with fake AI, Stripe, Cloudflare, Google and email (`test/run.mjs` for websites and Plus, `test/ai.mjs` for AI visibility, `test/video.mjs` for videos). `python video/render.py --job sample.json --out out --dry` makes a silent test video on your computer.
 
 ## Files
 
