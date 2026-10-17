@@ -64,6 +64,9 @@ ELEVENLABS_VOICE_ID = ""     # optional; empty uses the default narrator voice
 # Website pages for Growth and Pro clients (see README).
 SITE_AUTO_PUBLISH = "false"  # "true" publishes pages without waiting for your Approve click
 SITE_BUDGET = "1"            # pages written per 10-minute timer run
+# Listing kits for Growth and Pro clients (see README).
+LISTINGS_AUTO_PUBLISH = "false" # "true" sends kits to clients without waiting for your Approve click
+LISTINGS_BUDGET = "1"           # clients worked on per 10-minute timer run
 
 # Secrets: never put these in this file. Add each one with
 #   npx wrangler secret put NAME

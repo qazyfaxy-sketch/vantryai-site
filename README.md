@@ -90,6 +90,21 @@ Code: `src/ai.js`, `src/lib/aiscan.js`, `src/pages/report.js`.
 - `AUDIT_DAILY_CAP` (default 20) limits free reports per day so AI costs can't run away.
 - Refunds for the first-month promise: Stripe > Payments > the payment > Refund.
 
+## Listings (no setup needed)
+
+For Growth (4 sites a month) and Pro (8) clients. AI repeats what a few directories and review sites say, and every report already records which sites AI cited. The engine turns that list into a to-do:
+
+1. Takes the cited sites from the client's latest report, drops their own site, their competitors and social sites.
+2. AI labels each one (directory, review site, marketplace, article...) and whether a company like theirs can list there.
+3. Loads each candidate's homepage and looks for a real "add your product / claim your profile" link. Blocked sites stay on the list as "find it yourself". No link is ever invented.
+4. Writes one profile kit from their website only, fact-checks it, strips "best" and guarantees.
+5. Emails you a review page (approve, redo, skip), then emails the client their page at `/listings/<clientId>`.
+6. The client submits (CAPTCHAs and work-email checks need a person), pastes their profile link, and we load it to confirm their name is on it.
+
+Never: makes accounts, solves CAPTCHAs, writes or requests reviews, or promises placement. Runs on the 10-minute timer in small steps (Cloudflare caps outside calls per run). Reminders go to the client after 7 days, to you after 21.
+
+Settings in `wrangler.toml`: `LISTINGS_AUTO_PUBLISH` ("true" skips your review), `LISTINGS_BUDGET`, and `LISTINGS_OFF="true"` to stop it. Test: `node test/listings.mjs`.
+
 ## Videos: one-time setup (about 30 minutes)
 
 1. **A YouTube channel for Vantry.** In YouTube, create a channel for your first category, e.g. "Dental Software Guide". Verify it with your phone (youtube.com/verify) so custom thumbnails work.

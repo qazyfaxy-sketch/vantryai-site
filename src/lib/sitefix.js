@@ -181,7 +181,7 @@ export function slugify(s) {
 
 const clip = (s, n) => String(s || "").replace(/\s+/g, " ").trim().slice(0, n);
 const OVERCLAIM = /(\bthe best\b|#1\b|\bnumber one\b|\bindustry[- ]leading\b|\bworld[- ]class\b|\bguarantee[ds]?\b|\bunmatched\b|\bunbeatable\b)/i;
-const scrubText = (t) => (String(t).match(/[^.!?]+[.!?]*/g) || [String(t)]).filter((x) => !OVERCLAIM.test(x)).join("").replace(/\s{2,}/g, " ").trim();
+export const scrubText = (t) => (String(t).match(/[^.!?]+[.!?]*/g) || [String(t)]).filter((x) => !OVERCLAIM.test(x)).join("").replace(/\s{2,}/g, " ").trim();
 
 export function cleanPage(raw, kind) {
   if (!raw || typeof raw !== "object") return null;
