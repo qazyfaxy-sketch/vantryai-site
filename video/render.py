@@ -26,7 +26,6 @@ BAR = 46                            # browser top bar height
 CONTENT = (WIN[0], WIN[1] + BAR, WIN[2], WIN[3])
 CW, CH = CONTENT[2] - CONTENT[0], CONTENT[3] - CONTENT[1]
 NAVY, NAVY2, ACCENT, INK = (13, 19, 46), (27, 40, 92), (110, 168, 255), (240, 244, 255)
-SCROLL_SPEED = 38                   # px per second of narration
 ALLOWED_API_HOSTS = os.environ.get("ALLOWED_API_HOSTS", "api.vantryai.com").split(",")
 DEFAULT_VOICE = "JBFqnCBsd6RMkjVDRZzb"
 
@@ -102,61 +101,31 @@ def tag(img, xy, text, fnt, fill=(255, 255, 255, 34), color=INK):
     return out
 
 
-def title_card(path, title, name, domain, sponsor_line):
-    img = tag(backdrop().convert("RGBA"), (150, 120), sponsor_line, font(30))
-    d = ImageDraw.Draw(img)
-    size = 92
-    while size > 54:
-        big = font(size, True)
-        lines = wrap(d, title, big, 1500)
-        if len(lines) <= 4:
-            break
-        size -= 6
-    y = 500 - (len(lines) * int(size * 1.18)) // 2
-    for ln in lines:
-        d.text((150, y), ln, font=big, fill=INK)
-        y += int(size * 1.18)
-    mid = font(40, True)
-    d.text((150, y + 36), name, font=mid, fill=ACCENT)
-    if domain:
-        d.text((150 + d.textlength(name, font=mid) + 24, y + 40), domain, font=font(36), fill=(170, 184, 225))
-    img.convert("RGB").save(path)
-
-
-def window_frame(path, url, sponsor_line):
-    """Full-screen PNG with a transparent hole where the page shows through."""
-    img = backdrop().convert("RGBA")
-    d = ImageDraw.Draw(img)
-    x0, y0, x1, y1 = WIN
-    shadow = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-    ImageDraw.Draw(shadow).rounded_rectangle((x0, y0 + 14, x1, y1 + 14), radius=22, fill=(0, 0, 0, 120))
-    img = Image.alpha_composite(img, shadow.filter(ImageFilter.GaussianBlur(24)))
-    d = ImageDraw.Draw(img)
-    d.rounded_rectangle((x0, y0, x1, y1), radius=20, fill=(238, 241, 247, 255))
-    for i, c in enumerate([(255, 95, 87), (254, 188, 46), (40, 200, 64)]):
-        d.ellipse((x0 + 22 + i * 26, y0 + 16, x0 + 36 + i * 26, y0 + 30), fill=c)
-    pill_x0, pill_x1 = x0 + 140, x1 - 140
-    d.rounded_rectangle((pill_x0, y0 + 9, pill_x1, y0 + 37), radius=14, fill=(255, 255, 255, 255))
-    shown = re.sub(r"^https?://(www\.)?", "", url).rstrip("/")
-    d.text((pill_x0 + 18, y0 + 12), shown[:90], font=font(19), fill=(70, 78, 100))
-    # cut the content hole, keeping rounded bottom corners
-    hole = Image.new("L", (W, H), 0)
-    ImageDraw.Draw(hole).rounded_rectangle((CONTENT[0], CONTENT[1], CONTENT[2], CONTENT[3]), radius=20, fill=255)
-    ImageDraw.Draw(hole).rectangle((CONTENT[0], CONTENT[1], CONTENT[2], CONTENT[1] + 30), fill=255)
-    alpha = img.getchannel("A").point(lambda a: a)
-    alpha.paste(0, mask=hole)
-    img.putalpha(alpha)
-    tag(img, (x0, 20), sponsor_line, font(24), fill=(10, 14, 34, 200)).save(path)
-
-
 # ---------------- screenshots ----------------
 
+BOXES_JS = """() => {
+  const out = [];
+  const els = document.querySelectorAll('h1,h2,h3,h4,p,li,blockquote,[class*=price i],[class*=card i],[class*=tier i],[class*=plan i],[class*=feature i],section,article');
+  for (const el of els) {
+    const r = el.getBoundingClientRect();
+    if (r.width < 60 || r.height < 18) continue;
+    const t = (el.innerText || '').trim().replace(/\\s+/g, ' ').slice(0, 300);
+    if (!t) continue;
+    out.push({ tag: el.tagName, t, x: r.left + scrollX, y: r.top + scrollY, w: r.width, h: r.height });
+    if (out.length > 500) break;
+  }
+  return out;
+}"""
+
+
 def screenshot_pages(urls, outdir):
+    """Returns {url: {"path": png, "boxes": [{t, x, y, w, h, tag}] in screenshot pixels}}."""
     from playwright.sync_api import sync_playwright
     shots = {}
+    scale = CW / 1440
     with sync_playwright() as p:
         browser = p.chromium.launch()
-        ctx = browser.new_context(viewport={"width": 1440, "height": 900}, device_scale_factor=CW / 1440, locale="en-US",
+        ctx = browser.new_context(viewport={"width": 1440, "height": 900}, device_scale_factor=scale, locale="en-US",
                                   user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36")
         for i, url in enumerate(urls):
             pg = ctx.new_page()
@@ -175,11 +144,13 @@ def screenshot_pages(urls, outdir):
                 pg.add_style_tag(content="[id*=cookie i],[class*=cookie i],[id*=consent i],[class*=consent i],#onetrust-banner-sdk,.cc-window{display:none!important}")
                 pg.evaluate("""async () => { for (let y = 0; y < Math.min(document.body.scrollHeight, 7000); y += 700) { window.scrollTo(0, y); await new Promise(r => setTimeout(r, 120)); } window.scrollTo(0, 0); }""")
                 pg.wait_for_timeout(800)
+                boxes = pg.evaluate(BOXES_JS)
                 raw = outdir / f"raw{i}.png"
                 pg.screenshot(path=str(raw), full_page=True, timeout=30000)
                 im = Image.open(raw).convert("RGB")
+                k = CW / im.width
                 if im.width != CW:
-                    im = im.resize((CW, int(im.height * CW / im.width)))
+                    im = im.resize((CW, int(im.height * k)))
                 im = im.crop((0, 0, CW, min(im.height, 7000)))
                 if im.height < CH:
                     pad = Image.new("RGB", (CW, CH), (255, 255, 255))
@@ -187,8 +158,11 @@ def screenshot_pages(urls, outdir):
                     im = pad
                 shot = outdir / f"page{i}.png"
                 im.save(shot)
-                shots[url] = shot
-                log(f"screenshot ok: page {i + 1} ({im.height}px)")
+                px = scale * k
+                boxes = [{"t": b["t"], "tag": b["tag"], "x": b["x"] * px, "y": b["y"] * px, "w": b["w"] * px, "h": b["h"] * px}
+                         for b in boxes if (b["y"] + b["h"]) * px < im.height]
+                shots[url] = {"path": shot, "boxes": boxes, "h": im.height}
+                log(f"screenshot ok: page {i + 1} ({im.height}px, {len(boxes)} parts)")
             except Exception as e:
                 log(f"screenshot failed: page {i + 1}: {str(e)[:160]}")
             finally:
@@ -267,7 +241,10 @@ def caption_lines(words, max_chars=42):
             lines.append(cur)
             cur = []
     if cur:
-        lines.append(cur)
+        if lines and len(cur) <= 2 and len(" ".join(x[0] for x in lines[-1] + cur)) <= 56:
+            lines[-1] += cur          # no lonely last word
+        else:
+            lines.append(cur)
     return [(" ".join(x[0] for x in ln), ln[0][1], ln[-1][2]) for ln in lines]
 
 
@@ -279,9 +256,15 @@ def ts(t, sep):
     return f"{int(h)}:{int(m):02d}:{s:05.2f}"
 
 
+def ass_color(rgb):
+    r, g, b = rgb
+    return f"&H00{b:02X}{g:02X}{r:02X}&"
+
+
 def write_captions(lines, srt_path, ass_path):
+    """lines: [(text, start, end, words)] on the final timeline. SRT for YouTube, ASS (word-by-word highlight) to burn in."""
     srt = []
-    for i, (text, a, b) in enumerate(lines, 1):
+    for i, (text, a, b, _) in enumerate(lines, 1):
         srt += [str(i), f"{ts(a, ',')} --> {ts(b + 0.05, ',')}", text, ""]
     srt_path.write_text("\n".join(srt), encoding="utf-8")
     fam = font_family()
@@ -289,37 +272,329 @@ def write_captions(lines, srt_path, ass_path):
 ScriptType: v4.00+
 PlayResX: {W}
 PlayResY: {H}
-WrapStyle: 0
+WrapStyle: 2
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Cap,{fam},52,&H00FFFFFF,&H00FFFFFF,&H00301A0D,&H80000000,1,0,0,0,100,100,0,0,1,3,0,2,160,160,62,1
+Style: Cap,{fam},54,&H00FFFFFF,&H00FFFFFF,&H00301A0D,&H64000000,1,0,0,0,100,100,0,0,1,3,2,2,160,160,58,1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 """
-    ev = [f"Dialogue: 0,{ts(a, '.')},{ts(b + 0.05, '.')},Cap,,0,0,0,,{text.replace('{', '(').replace('}', ')')}" for text, a, b in lines]
+    hi = ass_color(ACCENT)
+    clean = lambda w: w.replace("{", "(").replace("}", ")")
+    ev = []
+    for text, a, b, words in lines:
+        for k, (w, ws, we) in enumerate(words):
+            t0 = a if k == 0 else ws
+            t1 = words[k + 1][1] if k + 1 < len(words) else b + 0.05
+            if t1 <= t0:
+                continue
+            body = " ".join((f"{{\\c{hi}}}{clean(x[0])}{{\\c&H00FFFFFF&}}" if j == k else clean(x[0])) for j, x in enumerate(words))
+            pop = "{\\fad(70,0)\\fscx92\\fscy92\\t(0,140,\\fscx100\\fscy100)}" if k == 0 else ""
+            ev.append(f"Dialogue: 0,{ts(t0, '.')},{ts(t1, '.')},Cap,,0,0,0,,{pop}{body}")
     ass_path.write_text(head + "\n".join(ev) + "\n", encoding="utf-8")
 
 
-# ---------------- building parts ----------------
+# ---------------- motion ----------------
 
-ENC = ["-c:v", "libx264", "-preset", "veryfast", "-crf", "18", "-pix_fmt", "yuv420p", "-r", str(FPS),
-       "-c:a", "aac", "-b:a", "160k", "-ar", "44100", "-ac", "2"]
-
-
-def part_title(png, audio, dur, out):
-    run(["ffmpeg", "-y", "-loop", "1", "-framerate", str(FPS), "-i", str(png), "-i", str(audio),
-         "-filter_complex", f"[0]scale={W}:{H},zoompan=z='1+0.0004*on':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s={W}x{H}:fps={FPS}[v];[1]apad[a]",
-         "-map", "[v]", "-map", "[a]", "-t", f"{dur:.3f}", *ENC, str(out)])
+ENC = ["-c:v", "libx264", "-preset", "veryfast", "-crf", "16", "-pix_fmt", "yuv420p", "-r", str(FPS),
+       "-c:a", "aac", "-b:a", "192k", "-ar", "44100", "-ac", "2"]
+XF = 0.45                            # transition length (seconds)
 
 
-def part_page(shot, frame, audio, dur, y0, y1, out):
-    move = f"{y0}+({y1}-{y0})*(0.5-0.5*cos(PI*min(max(t-0.6,0)/{max(dur - 1.2, 0.5):.3f},1)))"
-    run(["ffmpeg", "-y", "-f", "lavfi", "-i", f"color=c=black:s={W}x{H}:r={FPS}", "-loop", "1", "-framerate", str(FPS), "-i", str(shot),
-         "-loop", "1", "-framerate", str(FPS), "-i", str(frame), "-i", str(audio),
-         "-filter_complex", f"[1]crop={CW}:{CH}:0:'{move}'[pg];[0][pg]overlay={CONTENT[0]}:{CONTENT[1]}[b];[b][2]overlay=0:0[v];[3]apad[a]",
-         "-map", "[v]", "-map", "[a]", "-t", f"{dur:.3f}", *ENC, str(out)])
+def ease_io(x):
+    x = min(max(x, 0.0), 1.0)
+    return 4 * x ** 3 if x < 0.5 else 1 - (-2 * x + 2) ** 3 / 2
+
+
+def ease_out(x):
+    x = min(max(x, 0.0), 1.0)
+    return 1 - (1 - x) ** 3
+
+
+def ease_back(x):
+    x = min(max(x, 0.0), 1.0)
+    c1 = 1.70158
+    return 1 + (c1 + 1) * (x - 1) ** 3 + c1 * (x - 1) ** 2
+
+
+def fade_alpha(img, k):
+    """Multiply an RGBA image's transparency by k (0..1)."""
+    if k >= 0.999:
+        return img
+    out = img.copy()
+    out.putalpha(img.getchannel("A").point(lambda v: int(v * max(k, 0))))
+    return out
+
+
+class Encoder:
+    """Pipe raw frames into ffmpeg together with the narration."""
+    def __init__(self, out, audio, dur):
+        self.dur, self.n = dur, int(round(dur * FPS))
+        self.p = subprocess.Popen(["ffmpeg", "-y", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{W}x{H}", "-r", str(FPS), "-i", "-",
+                                   "-i", str(audio), "-filter_complex", "[1]apad[a]", "-map", "0:v", "-map", "[a]", "-t", f"{dur:.3f}", *ENC, str(out)],
+                                  stdin=subprocess.PIPE, stderr=subprocess.PIPE)
+
+    def write(self, img):
+        self.p.stdin.write(img.tobytes())
+
+    def close(self):
+        self.p.stdin.close()
+        err = self.p.stderr.read().decode()[-800:]
+        if self.p.wait() != 0:
+            raise RuntimeError(f"ffmpeg failed: {err}")
+
+
+def big_backdrop():
+    return backdrop(W + 240, H + 140)
+
+
+def drift(bg, t, dur):
+    """Slow, continuous background movement."""
+    k = t / max(dur, 1)
+    x = int(120 + 110 * math.sin(k * math.pi * 0.9))
+    y = int(70 + 60 * math.cos(k * math.pi * 0.7))
+    return bg.crop((x, y, x + W, y + H))
+
+
+def text_layer(text, fnt, color):
+    d = ImageDraw.Draw(Image.new("RGBA", (10, 10)))
+    w = int(d.textlength(text, font=fnt)) + 8
+    img = Image.new("RGBA", (w, int(fnt.size * 1.35)), (0, 0, 0, 0))
+    ImageDraw.Draw(img).text((2, 0), text, font=fnt, fill=color)
+    return img
+
+
+def pill_layer(text, fnt, fill, color, dot=None):
+    d = ImageDraw.Draw(Image.new("RGBA", (10, 10)))
+    tw = int(d.textlength(text, font=fnt))
+    pad = 22 + (22 if dot else 0)
+    h = fnt.size + 24
+    img = Image.new("RGBA", (tw + pad + 22, h), (0, 0, 0, 0))
+    dd = ImageDraw.Draw(img)
+    dd.rounded_rectangle((0, 0, img.width - 1, h - 1), radius=h // 2, fill=fill)
+    if dot:
+        dd.ellipse((20, h // 2 - 6, 32, h // 2 + 6), fill=dot)
+    dd.text((pad, 10), text, font=fnt, fill=color)
+    return img
+
+
+def render_title(out, audio, dur, title, name, domain, sponsor, outro=False):
+    """Animated title card: lines rise in one after another, an accent line wipes in, name follows."""
+    bg = big_backdrop()
+    sponsor_l = pill_layer(sponsor, font(30), (255, 255, 255, 34), INK)
+    size = 92
+    d = ImageDraw.Draw(Image.new("RGB", (10, 10)))
+    while size > 54:
+        big = font(size, True)
+        lines = wrap(d, title, big, 1500)
+        if len(lines) <= 4:
+            break
+        size -= 6
+    line_l = [text_layer(ln, big, INK) for ln in lines]
+    lh = int(size * 1.18)
+    y0 = 500 - (len(lines) * lh) // 2
+    name_l = text_layer(name, font(42, True), ACCENT)
+    dom_l = pill_layer(domain, font(32), (110, 168, 255, 255), NAVY) if domain else None
+    dom_plain = text_layer(domain, font(36), (170, 184, 225)) if domain and not outro else None
+    enc = Encoder(out, audio, dur)
+    for f in range(enc.n):
+        t = f / FPS
+        img = drift(bg, t, dur).convert("RGBA")
+        k = ease_out(t / 0.4)
+        img.alpha_composite(fade_alpha(sponsor_l, k), (150, int(120 + 12 * (1 - k))))
+        for i, L in enumerate(line_l):
+            k = ease_out((t - 0.15 - i * 0.12) / 0.6)
+            if k > 0:
+                img.alpha_composite(fade_alpha(L, k), (150, int(y0 + i * lh + 46 * (1 - k))))
+        ybar = y0 + len(lines) * lh + 14
+        kb = ease_io((t - 0.55) / 0.5)
+        if kb > 0:
+            ImageDraw.Draw(img).rounded_rectangle((150, ybar, 150 + int(180 * kb), ybar + 8), radius=4, fill=ACCENT)
+        kn = ease_out((t - 0.75) / 0.5)
+        if kn > 0:
+            img.alpha_composite(fade_alpha(name_l, kn), (150 + int(-20 * (1 - kn)), ybar + 34))
+            if dom_plain:
+                img.alpha_composite(fade_alpha(dom_plain, kn), (150 + name_l.width + 20, ybar + 38))
+        if outro and dom_l:
+            kd = ease_back((t - 1.0) / 0.45)
+            if kd > 0:
+                s2 = max(0.01, 0.6 + 0.4 * kd)
+                pl = dom_l.resize((max(1, int(dom_l.width * s2)), max(1, int(dom_l.height * s2))))
+                img.alpha_composite(fade_alpha(pl, min(1, kd)), (150, ybar + 110 + (dom_l.height - pl.height) // 2))
+        enc.write(img.convert("RGB"))
+    enc.close()
+
+
+def window_base(url, sponsor):
+    """Background + browser window chrome (content area painted over per frame)."""
+    img = backdrop().convert("RGBA")
+    x0, y0, x1, y1 = WIN
+    shadow = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    ImageDraw.Draw(shadow).rounded_rectangle((x0, y0 + 16, x1, y1 + 16), radius=22, fill=(0, 0, 0, 130))
+    img = Image.alpha_composite(img, shadow.filter(ImageFilter.GaussianBlur(26)))
+    d = ImageDraw.Draw(img)
+    d.rounded_rectangle((x0, y0, x1, y1), radius=20, fill=(238, 241, 247, 255))
+    for i, c in enumerate([(255, 95, 87), (254, 188, 46), (40, 200, 64)]):
+        d.ellipse((x0 + 22 + i * 26, y0 + 16, x0 + 36 + i * 26, y0 + 30), fill=c)
+    pill_x0, pill_x1 = x0 + 140, x1 - 140
+    d.rounded_rectangle((pill_x0, y0 + 9, pill_x1, y0 + 37), radius=14, fill=(255, 255, 255, 255))
+    shown = re.sub(r"^https?://(www\.)?", "", url).rstrip("/")
+    d.text((pill_x0 + 18, y0 + 12), shown[:90], font=font(19), fill=(70, 78, 100))
+    img = tag(img, (x0, 20), sponsor, font(24), fill=(10, 14, 34, 200))
+    return img.convert("RGB")
+
+
+_CONTENT_MASK = None
+
+
+def content_mask():
+    global _CONTENT_MASK
+    if _CONTENT_MASK is None:
+        m = Image.new("L", (CW, CH), 0)
+        ImageDraw.Draw(m).rounded_rectangle((0, -30, CW - 1, CH - 1), radius=20, fill=255)
+        _CONTENT_MASK = m
+    return _CONTENT_MASK
+
+
+STOP = set("this that with your their they them have from what when will about into just more than also only each other which there these those then here very most some been being were does dont cant you're it's here's know should".split())
+
+
+def keywords(text):
+    return {w for w in re.findall(r"[a-z0-9$]+", text.lower()) if (len(w) > 3 or w.startswith("$")) and w not in STOP}
+
+
+def pick_focus(boxes, say, chapter, used, page_h):
+    """The part of the page that best matches what's being said, small enough to zoom into."""
+    want = keywords(f"{say} {chapter} {chapter}")
+    nums = set(re.findall(r"\d+", say))
+    best, best_score = None, 0.0
+    for b in boxes:
+        if b["h"] > CH * 0.8 or b["w"] > CW * 0.8 or b["w"] < 160 or b["h"] < 30 or b["y"] + b["h"] > page_h:
+            continue
+        have = keywords(b["t"])
+        score = len(want & have) + 1.5 * len(nums & set(re.findall(r"\d+", b["t"])))
+        if b["tag"] in ("H1", "H2", "H3"):
+            score += 0.5 if want & have else 0
+        frac = (b["w"] * b["h"]) / (CW * CH)
+        score *= (frac / 0.05) ** 0.5 if frac < 0.05 else (0.6 / frac if frac > 0.6 else 1.0)
+        key = (round(b["x"]), round(b["y"]))
+        if key in used:
+            score *= 0.4
+        if score > best_score:
+            best, best_score = b, score
+    return best if best_score >= 1.2 else None
+
+
+def camera_plan(focus, style, dur, y_start, page_h):
+    """Keyframes [(t, cx, cy, zoom)] in page pixels."""
+    clamp_y = lambda cy, z: min(max(cy, CH / z / 2), page_h - CH / z / 2)
+    if not focus:
+        y_end = min(y_start + 38 * dur, max(0, page_h - CH))
+        return [(0, CW / 2, y_start + CH / 2, 1.0), (0.5, CW / 2, y_start + CH / 2, 1.0), (dur, CW / 2, y_end + CH / 2, 1.04)]
+    z = min(1.55, max(1.12, min(0.78 * CW / focus["w"], 0.78 * CH / focus["h"])))
+    fx, fy = focus["x"] + focus["w"] / 2, focus["y"] + focus["h"] / 2
+    fx = min(max(fx, CW / z / 2), CW - CW / z / 2)
+    if style == "glide":
+        cur = y_start + CH / 2
+        start_y = clamp_y(cur if abs(fy - cur) < CH * 1.2 else fy, 1.0)
+        settle = min(1.7, dur * 0.35)
+        return [(0, CW / 2, start_y, 1.0), (0.25, CW / 2, start_y, 1.0), (settle, fx, clamp_y(fy, z), z), (dur, fx, clamp_y(fy, z * 1.06), z * 1.06)]
+    return [(0, fx, clamp_y(fy, z * 0.94), z * 0.94), (dur, fx, clamp_y(fy, z * 1.05), z * 1.05)]
+
+
+def camera_at(plan, t):
+    if t <= plan[0][0]:
+        return plan[0][1:]
+    for (t0, x0, y0, z0), (t1, x1, y1, z1) in zip(plan, plan[1:]):
+        if t <= t1:
+            k = ease_io((t - t0) / max(t1 - t0, 1e-6))
+            return x0 + (x1 - x0) * k, y0 + (y1 - y0) * k, z0 + (z1 - z0) * k
+    return plan[-1][1:]
+
+
+def render_page(out, audio, dur, page, base, focus, style, y_start, chapter):
+    pimg = Image.open(page["path"]).convert("RGB")
+    ph = pimg.height
+    plan = camera_plan(focus, style, dur, y_start, ph)
+    show_at = plan[2][0] if style == "glide" and focus else 0.45
+    chip = pill_layer(chapter, font(24, True), (255, 255, 255, 30), INK, dot=ACCENT) if chapter else None
+    mask = content_mask()
+    enc = Encoder(out, audio, dur)
+    for f in range(enc.n):
+        t = f / FPS
+        cx, cy, z = camera_at(plan, t)
+        vw, vh = CW / z, CH / z
+        left = min(max(cx - vw / 2, 0), CW - vw)
+        top = min(max(cy - vh / 2, 0), max(ph - vh, 0))
+        view = pimg.resize((CW, CH), Image.BILINEAR, box=(left, top, left + vw, top + vh))
+        frame = base.copy()
+        frame.paste(view, (CONTENT[0], CONTENT[1]), mask)
+        if focus:
+            k = (t - show_at) / 0.4
+            if k > 0:
+                s2 = 1 + 0.06 * (1 - ease_back(k))
+                bx = (focus["x"] - left) * z + CONTENT[0]
+                by = (focus["y"] - top) * z + CONTENT[1]
+                bw, bh = focus["w"] * z, focus["h"] * z
+                pad = 14
+                x0, y0 = bx + bw / 2 - (bw / 2 + pad) * s2, by + bh / 2 - (bh / 2 + pad) * s2
+                x1, y1 = bx + bw / 2 + (bw / 2 + pad) * s2, by + bh / 2 + (bh / 2 + pad) * s2
+                x0, y0 = max(x0, CONTENT[0] + 4), max(y0, CONTENT[1] + 4)
+                x1, y1 = min(x1, CONTENT[2] - 4), min(y1, CONTENT[3] - 4)
+                if x1 - x0 > 20 and y1 - y0 > 20:
+                    a = min(1.0, k)
+                    region = (int(x0) - 4, int(y0) - 4, int(x1) + 5, int(y1) + 5)
+                    crop = frame.crop(region).convert("RGBA")
+                    ov = Image.new("RGBA", crop.size, (0, 0, 0, 0))
+                    od = ImageDraw.Draw(ov)
+                    od.rounded_rectangle((4, 4, crop.width - 5, crop.height - 5), radius=16, fill=ACCENT + (int(26 * a),), outline=ACCENT + (int(255 * a),), width=5)
+                    frame.paste(Image.alpha_composite(crop, ov).convert("RGB"), region[:2])
+        if chip:
+            # chapter label above the window, top right: slides down in, stays for the whole shot
+            k_in = ease_out((t - 0.15) / 0.45)
+            if k_in > 0.01:
+                cx0 = WIN[2] - chip.width
+                region = (cx0, 6, WIN[2], 6 + chip.height + 20)
+                bgc = frame.crop(region).convert("RGBA")
+                bgc.alpha_composite(fade_alpha(chip, k_in), (0, int(10 - 14 * (1 - k_in)) + 4))
+                frame.paste(bgc.convert("RGB"), region[:2])
+        enc.write(frame)
+    enc.close()
+    return max(0, plan[-1][2] - CH / plan[-1][3] / 2)   # where this shot ended (top of view), for the next shot
+
+
+TRANSITIONS = ["smoothleft", "slideup", "smoothright", "circleopen", "smoothup", "fadeblack"]
+
+
+def join_parts(parts, durs, ass, final, music=None):
+    """Smooth transitions between every shot, captions burned in, loudness evened out."""
+    n = len(parts)
+    inputs = sum([["-i", str(p)] for p in parts], [])
+    fc, v, a = [], "[0:v]", "[0:a]"
+    off, kinds = 0.0, []
+    for i in range(1, n):
+        off += durs[i - 1] - XF
+        kind = "fade" if i == 1 or i == n - 1 else TRANSITIONS[(i - 2) % len(TRANSITIONS)]
+        kinds.append(kind)
+        fc.append(f"{v}[{i}:v]xfade=transition={kind}:duration={XF}:offset={off:.3f}[v{i}]")
+        fc.append(f"{a}[{i}:a]acrossfade=d={XF}:c1=tri:c2=tri[a{i}]")
+        v, a = f"[v{i}]", f"[a{i}]"
+    total = sum(durs) - XF * (n - 1)
+    ass_arg = str(ass).replace("\\", "/").replace(":", "\\:")
+    fc.append(f"{v}subtitles='{ass_arg}',fade=t=in:st=0:d=0.5,fade=t=out:st={max(total - 0.8, 0):.2f}:d=0.8[vout]")
+    if music:
+        inputs += ["-stream_loop", "-1", "-i", str(music)]
+        fc.append(f"{a}loudnorm=I=-16:TP=-1.5:LRA=11,asplit=2[voice][key]")
+        fc.append(f"[{n}:a]volume=0.22,afade=t=in:d=1.5,afade=t=out:st={max(total - 2, 0):.2f}:d=2[bgm]")
+        fc.append("[bgm][key]sidechaincompress=threshold=0.02:ratio=10:attack=15:release=500[ducked]")
+        fc.append("[voice][ducked]amix=inputs=2:normalize=0:duration=first[aout]")
+    else:
+        fc.append(f"{a}loudnorm=I=-16:TP=-1.5:LRA=11[aout]")
+    run(["ffmpeg", "-y", *inputs, "-filter_complex", ";".join(fc), "-map", "[vout]", "-map", "[aout]", "-t", f"{total:.3f}",
+         "-c:v", "libx264", "-preset", "medium", "-crf", "20", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", str(final)])
+    return total
 
 
 def chapters(starts, total):
@@ -406,6 +681,14 @@ def yt_thumbnail(token, video_id, jpg):
 
 # ---------------- main ----------------
 
+def find_music():
+    m = os.environ.get("VIDEO_MUSIC")
+    if m and Path(m).exists():
+        return Path(m)
+    tracks = sorted((Path(__file__).parent / "music").glob("*.mp3"))
+    return tracks[int(time.time()) % len(tracks)] if tracks else None
+
+
 def render(job, out, dry=False):
     out.mkdir(parents=True, exist_ok=True)
     work = out / "work"
@@ -423,57 +706,57 @@ def render(job, out, dry=False):
     if not home:
         raise RuntimeError(f"Couldn't load {name}'s website to show it on screen.")
 
-    parts, lines, starts, t = [], [], [], 0.0
-    offsets, frames = {}, {}
+    parts, durs, seg_words, bases, used, scroll = [], [], [], {}, {}, {}
+    page_n = 0
     for i, s in enumerate(segs):
         audio = work / f"a{i}.mp3"
-        prev_text = segs[i - 1]["say"] if i else ""
-        next_text = segs[i + 1]["say"] if i + 1 < len(segs) else ""
-        words = voice(s["say"], audio, prev_text, next_text, dry)
-        dur = duration(audio) + 0.45
+        words = voice(s["say"], audio, segs[i - 1]["say"] if i else "", segs[i + 1]["say"] if i + 1 < len(segs) else "", dry)
+        dur = duration(audio) + 0.25 + (XF if i + 1 < len(segs) else 0.6)
         clip = work / f"p{i}.mp4"
         if s.get("visual") == "title" or not s.get("page"):
-            png = work / f"t{i}.png"
             last = i == len(segs) - 1
-            title_card(png, f"Learn more about {name}" if last else script.get("question") or script["title"], name, domain, sponsor)
-            part_title(png, audio, dur, clip)
+            render_title(clip, audio, dur, f"Learn more about {name}" if last else script.get("question") or script["title"], name, domain, sponsor, outro=last)
         else:
             url = s["page"] if s["page"] in shots else next(iter(shots))
-            shot = shots[url]
-            if url not in frames:
-                frames[url] = work / f"f{len(frames)}.png"
-                window_frame(frames[url], url, sponsor)
-            hpx = Image.open(shot).height
-            y0 = offsets.get(url, 0)
-            y1 = min(y0 + int(SCROLL_SPEED * dur), max(0, hpx - CH))
-            if y0 >= max(0, hpx - CH) - 20:     # reached the bottom before: start over from the top
-                y0, y1 = 0, min(int(SCROLL_SPEED * dur), max(0, hpx - CH))
-            offsets[url] = y1
-            part_page(shot, frames[url], audio, dur, y0, y1, clip)
-        starts.append((s.get("chapter") or f"Part {i + 1}", t))
-        lines += [(txt, a + t, b + t) for txt, a, b in caption_lines(words)]
+            page = shots[url]
+            if url not in bases:
+                bases[url] = window_base(url, sponsor)
+            focus = pick_focus(page["boxes"], s["say"], s.get("chapter", ""), used.setdefault(url, set()), page["h"])
+            if focus:
+                used[url].add((round(focus["x"]), round(focus["y"])))
+            style = "glide" if page_n % 2 == 0 else "punch"
+            prev_chapter = segs[i - 1].get("chapter") if i else None
+            chapter = s.get("chapter") if s.get("chapter") and s.get("chapter") != prev_chapter else None
+            y_start = scroll.get(url, 0)
+            if y_start >= page["h"] - CH - 20:
+                y_start = 0
+            scroll[url] = render_page(clip, audio, dur, page, bases[url], focus, style, y_start, chapter)
+            page_n += 1
+            log(f"  shot: {'zoom to ' + focus['t'][:40] + '...' if focus else 'scroll'} ({style if focus else 'pan'})")
         parts.append(clip)
-        t += duration(clip)
+        durs.append(duration(clip))
+        seg_words.append(words)
         log(f"part {i + 1}/{len(segs)} done ({dur:.1f}s)")
 
-    lst = work / "list.txt"
-    lst.write_text("".join(f"file '{p.resolve()}'\n" for p in parts))
-    joined = work / "joined.mp4"
-    run(["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", str(lst), "-c", "copy", str(joined)])
+    # Timeline with transitions: part i starts at sum(previous) - i * XF.
+    starts, lines, t = [], [], 0.0
+    for i, s in enumerate(segs):
+        starts.append((s.get("chapter") or f"Part {i + 1}", t))
+        for txt, a, b in caption_lines(seg_words[i]):
+            ws = [(w, x + t, y + t) for w, x, y in seg_words[i] if x >= a - 1e-6 and y <= b + 1e-6]
+            lines.append((txt, a + t, b + t, ws or [(txt, a + t, b + t)]))
+        t += durs[i] - XF
     srt, ass = out / "captions.srt", work / "captions.ass"
     write_captions(lines, srt, ass)
-    total = duration(joined)
     final = out / "video.mp4"
-    ass_arg = str(ass).replace("\\", "/").replace(":", "\\:")
-    run(["ffmpeg", "-y", "-i", str(joined), "-vf", f"subtitles='{ass_arg}',fade=t=in:st=0:d=0.5,fade=t=out:st={max(total - 0.8, 0):.2f}:d=0.8",
-         "-af", "loudnorm=I=-16:TP=-1.5:LRA=11", "-c:v", "libx264", "-preset", "medium", "-crf", "20", "-pix_fmt", "yuv420p",
-         "-c:a", "aac", "-b:a", "160k", "-movflags", "+faststart", str(final)])
+    music = find_music()
+    total = join_parts(parts, durs, ass, final, music)
     thumb = out / "thumbnail.jpg"
-    thumbnail(thumb, script.get("question") or script["title"], name, home)
+    thumbnail(thumb, script.get("question") or script["title"], name, home["path"])
     chap = chapters(starts, total)
     description = script["description"] + (f"\n\n{chap}" if chap else "")
     (out / "youtube.txt").write_text(f"TITLE\n{clean_text(script['title'], 100)}\n\nDESCRIPTION\n{clean_text(description, 4900)}\n\nTAGS\n{', '.join(script.get('tags', []))}\n\nMark it as a paid promotion: Details > Show more > Paid promotion.\n", encoding="utf-8")
-    log(f"video ready: {total:.0f}s")
+    log(f"video ready: {total:.0f}s{' with music' if music else ''}")
     return final, srt, thumb, description, total
 
 
