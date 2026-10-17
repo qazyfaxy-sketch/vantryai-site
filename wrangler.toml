@@ -26,9 +26,11 @@ pattern = "*/*"
 zone_name = "vantryai.com"
 
 # Visits and call/text taps on customer sites (free). Created automatically on first write.
-[[analytics_engine_datasets]]
-binding = "STATS"
-dataset = "vantry_stats"
+# Turned off because the deploy fails until Analytics Engine is enabled in the Cloudflare dashboard
+# (Workers & Pages > Analytics Engine). After enabling it, remove the "#" on the next 3 lines.
+# [[analytics_engine_datasets]]
+# binding = "STATS"
+# dataset = "vantry_stats"
 
 [vars]
 API_HOST = "api.vantryai.com"
