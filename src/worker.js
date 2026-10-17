@@ -13,6 +13,7 @@
 //   POST /api/twilio/*         calls and texts to Vantry Plus lines (missed-call text-back)
 //   GET  /admin?token=         your orders dashboard (approve, retry, take offline)
 //   /login, /account           customers log in with email + password and edit their site
+//   /api/report, /r/:id, ...   AI visibility reports and plans (see src/ai.js)
 //
 // On any customer domain: serves that customer's website.
 // Every 10 minutes (cron): checks on domains still registering or waiting for DNS.
@@ -40,6 +41,7 @@ import { runMonthlyReports } from "./lib/reports.js";
 import { startNurture, runNurture, unsubscribe } from "./lib/nurture.js";
 import { plusOn, plusView, onPlusStarted, onPlusEnded, onLead, chat, siteForNumber, onMissedCall, onIncomingText, settingsOf, bump } from "./plus.js";
 import { verifyTwilio, twiml, say, dial, toE164 } from "./lib/twilio.js";
+import { isAiPath, aiRoute, aiAdmin, onAiStarted, onAiEnded, onInvoiceUpcoming } from "./ai.js";
 
 const MAX_PREVIEWS_PER_EMAIL = 2;
 const MAX_PREVIEWS_PER_IP_HOUR = 6;
@@ -100,6 +102,7 @@ async function route(req, url, env, ctx) {
   if (req.method === "POST" && p === "/api/stripe/webhook") return await stripeWebhook(req, env, ctx);
   if (req.method === "POST" && p === "/api/chat") return json(await chat(req, env), 200, cors);
   if (req.method === "POST" && p.startsWith("/api/twilio/")) return await twilioHook(req, url, env, ctx);
+  if (isAiPath(p)) return await aiRoute(req, url, env, cors); // AI visibility: reports, plans, onboarding
 
   let m;
   if (req.method === "GET" && (m = p.match(/^\/p\/([a-z0-9]{10})$/))) return await showPreview(m[1], url, env);
@@ -366,7 +369,13 @@ async function stripeWebhook(req, env, ctx) {
   const event = await verifyWebhook(env, body, req.headers.get("Stripe-Signature"));
   const obj = event.data?.object || {};
   let work = null;
-  if (event.type === "checkout.session.completed" && obj.mode === "subscription" && obj.payment_status !== "unpaid") {
+  if (event.type === "checkout.session.completed" && obj.metadata?.aiClientId) {
+    work = obj.payment_status !== "unpaid" ? onAiStarted(env, obj) : null;
+  } else if (event.type === "customer.subscription.deleted" && obj.metadata?.aiClientId) {
+    work = onAiEnded(env, obj);
+  } else if (event.type === "invoice.upcoming") {
+    work = onInvoiceUpcoming(env, obj); // renewal reminder (AI plans)
+  } else if (event.type === "checkout.session.completed" && obj.mode === "subscription" && obj.payment_status !== "unpaid") {
     work = obj.metadata?.plusSiteId ? onPlusStarted(env, obj) : onCheckoutCompleted(env, obj);
   } else if (event.type === "customer.subscription.deleted" && obj.metadata?.plusSiteId) {
     work = onPlusEnded(env, obj); // Plus ended; the website stays online
@@ -508,6 +517,7 @@ async function admin(req, url, env) {
   }
   if (!safeEqual(token, env.ADMIN_TOKEN)) throw httpError(404, "Page not found.");
   const noStore = { "Cache-Control": "no-store", "X-Robots-Tag": "noindex" };
+  if (url.pathname === "/admin/audits" || url.pathname === "/admin/audit") return await aiAdmin(req, url, env, form, token);
 
   let m;
   if (req.method === "GET" && (m = url.pathname.match(/^\/admin\/site\/(o[a-z0-9]{12})$/))) {

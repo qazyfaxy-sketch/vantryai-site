@@ -51,6 +51,11 @@ PLUS_PRICE_CENTS = "3900"   # $39/month
 PLUS_TRIAL_DAYS = "14"      # free days before the first charge (0 = no trial)
 TWILIO_MESSAGING_SERVICE_SID = ""  # Twilio Messaging Service that passed US carrier approval (A2P 10DLC), starts with MG
 
+# AI visibility ("Get recommended by ChatGPT")
+AUDIT_DAILY_CAP = "20"     # most free reports per day (cost guard)
+AUDIT_ENGINES = ""         # leave empty to use every engine with a key, or e.g. "openai,perplexity"
+STRIPE_PORTAL_LINK = ""    # Stripe > Settings > Billing > Customer portal > login link (one-click cancel)
+
 # Secrets: never put these in this file. Add each one with
 #   npx wrangler secret put NAME
 # ANTHROPIC_API_KEY      AI that writes the site words
@@ -58,6 +63,9 @@ TWILIO_MESSAGING_SERVICE_SID = ""  # Twilio Messaging Service that passed US car
 # STRIPE_WEBHOOK_SECRET  Stripe > Developers > Webhooks (starts with whsec_)
 # CF_API_TOKEN           Cloudflare token with Registrar, Zone, DNS, Workers Routes, SSL for SaaS permissions
 # RESEND_API_KEY         resend.com > API keys
+# OPENAI_API_KEY         platform.openai.com > API keys (ChatGPT answers in reports, also AI photos)
+# PERPLEXITY_API_KEY     perplexity.ai > Settings > API (optional)
+# GEMINI_API_KEY         aistudio.google.com > Get API key (optional)
 # ADMIN_TOKEN            a long random password for your /admin dashboard
 # CF_ANALYTICS_TOKEN     optional: token with "Account Analytics: Read" for site stats (else CF_API_TOKEN is used)
 # OPENAI_API_KEY         optional: platform.openai.com key. Turns on AI photos (category photos + one per paying customer)

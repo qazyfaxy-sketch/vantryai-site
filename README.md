@@ -58,13 +58,35 @@ You'll need accounts at **Cloudflare** (vantryai.com must use Cloudflare for its
 8. **Deploy.** Run `npx wrangler deploy`.
 9. **Test with Stripe test keys first.** Use the card `4242 4242 4242 4242` with any future date. A domain registration is a real purchase, so test with your own domain mode ("I already own one") until you're ready.
 
+## AI visibility ("Get recommended by ChatGPT")
+
+Code: `src/ai.js`, `src/lib/aiscan.js`, `src/pages/report.js`.
+
+1. **Free report.** The form on vantryai.com/ai sends a business's name, website, what it sells and an email. We write 3 buyer questions, ask each AI engine (ChatGPT, Perplexity, Gemini, Claude: whichever have keys) with web search on, and check who gets named. They get a report link by email, and so do you.
+2. **Report page** (`/r/:id`): how many answers named them, per AI, who was named instead, which sites the AI cited, and every answer. It says plainly how and when it was checked and never promises a ranking.
+3. **Plans:** Starter $149, Growth $497, Pro $997 a month, through Stripe checkout, month to month.
+4. **After payment:** a welcome email with the onboarding link (`/start/:id`, no call), the timeline, the 60-day promise and the refund promise. You get an email too.
+5. **Renewal reminder:** Stripe sends `invoice.upcoming` before each renewal and we email the client the date, the amount and how to cancel.
+6. **Cancel:** set `STRIPE_PORTAL_LINK` for one-click cancel; without it the email says "reply and we'll cancel it the same day".
+
+**Your tools:** `https://api.vantryai.com/admin/audits?token=YOUR_ADMIN_TOKEN` runs a report by hand and lists reports and clients.
+
+**Outreach reports in bulk:** `POST /api/audit/batch` with `Authorization: Bearer YOUR_ADMIN_TOKEN` and `{"companies":[{"name","website","category","audience"}],"questionCount":3,"engines":["openai","perplexity"]}`. Each row returns the report link, the score, the first question, which AI answered it and who it named instead: everything an outreach email needs. Batches are sized to Cloudflare's per-request limit.
+
+**Setup for AI visibility:**
+- Add at least one engine key with `npx wrangler secret put`: `OPENAI_API_KEY` (ChatGPT), and optionally `PERPLEXITY_API_KEY`, `GEMINI_API_KEY`. `ANTHROPIC_API_KEY` (already set) adds Claude and writes the questions.
+- In the Stripe webhook, also add the events `invoice.upcoming`. In Stripe > Settings > Billing > Subscriptions and emails, set upcoming renewal events to **3 days** before.
+- Turn on the Stripe customer portal and paste its login link into `STRIPE_PORTAL_LINK` in `wrangler.toml`.
+- `AUDIT_DAILY_CAP` (default 20) limits free reports per day so AI costs can't run away.
+- Refunds for the first-month promise: Stripe > Payments > the payment > Refund.
+
 ## Deploys
 
 Cloudflare builds and deploys automatically on every push to the `engine` branch.
 
 ## Test
 
-`node test/run.mjs` runs 78 end-to-end checks with fake AI, Stripe, Cloudflare and email.
+`npm test` runs every end-to-end check with fake AI, Stripe, Cloudflare and email (`test/run.mjs` for websites and Plus, `test/ai.mjs` for AI visibility).
 
 ## Files
 
