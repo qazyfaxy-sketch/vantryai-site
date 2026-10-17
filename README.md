@@ -153,6 +153,14 @@ Next to the long videos, each Growth client gets 4 Shorts a month (Pro 8), made 
 
 Local check of the renderer (silent, no keys): serve any page (`python3 -m http.server 8765` in a folder with an index.html), write a job file with `"script": {"format": "short", "segments": [...]}` and run `python video/render.py --job job.json --out out --dry`.
 
+## Setup check
+
+`/admin/check?token=...` (also linked from your admin page) lists every setting that's in or missing, in plain words, never showing a secret. "Test my keys" makes one tiny real call to Anthropic, OpenAI, Gemini, Resend, Stripe, GitHub and YouTube, shows whether Stripe is in test or live mode, checks the 10-minute timer is running, and looks up (never changes) the MX, SPF and DMARC records on your outreach domain. "Email myself a test" sends one email from your outreach address to your own inbox to prove sending works.
+
+## Finding contacts and sorting replies
+
+On `/admin/prospects`, "Find contacts for me" takes company websites and reads only each company's own public pages (homepage, contact page, about page; skips sites whose robots.txt says no) for an email on the company's own domain. It never guesses an address; generic ones like info@ are used only if nothing better is published. Replies: add an inbound route in Resend (event `email.received`, same webhook URL) or paste a reply into the page. Replies are sorted (interested, question, no, opt-out, automatic); opt-outs and "no thanks" go on the never-email list, follow-ups stop, and you're emailed about the interested ones. Nothing is ever answered for you.
+
 ## Videos: one-time setup (about 30 minutes)
 
 1. **A YouTube channel for Vantry.** In YouTube, create a channel for your first category, e.g. "Dental Software Guide". Verify it with your phone (youtube.com/verify) so custom thumbnails work.

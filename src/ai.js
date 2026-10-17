@@ -21,6 +21,7 @@ import { isVideoPath, videoRoute, videoAdmin, videoCard, runVideos } from "./lib
 import { isListingsPath, listingsRoute, listingsAdmin, listingsCard, runListings } from "./lib/listings.js";
 import { isOutreachPath, outreachRoute, outreachAdmin, outreachCard, runOutreach } from "./lib/outreach.js";
 import { isRedditPath, redditRoute, redditAdmin, redditCard, runReddit } from "./lib/reddit.js";
+import { checkAdmin } from "./lib/check.js";
 import { suggestScript } from "./lib/suggest.js";
 import { isProspectsPath, prospectsRoute, prospectsAdmin, prospectsCard, runProspects } from "./lib/prospects.js";
 import { isDashPath, dashRoute, dashUrl, dashCard } from "./lib/dashboard.js";
@@ -337,6 +338,7 @@ ${sign}`,
 
 export async function aiAdmin(req, url, env, form, token) {
   if (url.pathname.startsWith("/admin/youtube") || url.pathname === "/admin/video") return await videoAdmin(req, url, env, form, token, { getClient, saveClient });
+  if (url.pathname === "/admin/check") return await checkAdmin(req, url, env, form, token);
   if (url.pathname === "/admin/prospects") return await prospectsAdmin(req, url, env, form, token);
   if (req.method === "POST" && url.pathname === "/admin/reddit") return await redditAdmin(req, url, env, form, token, { getClient, saveClient });
   if (req.method === "POST" && url.pathname === "/admin/outreach") return await outreachAdmin(req, url, env, form, token, { getClient, saveClient });
@@ -372,6 +374,7 @@ ${await siteCard(env, clients, token)}
 ${await listingsCard(env, clients, token)}
 ${await outreachCard(env, clients, token)}
 ${await redditCard(env, clients, token)}
+<div class="card"><h2>Setup check</h2><p><a href="/admin/check?token=${t}">Is everything set up? Test my keys</a></p></div>
 ${await prospectsCard(env, token)}
 ${await dashCard(env, clients)}
 <div class="card"><h2>Recent reports</h2>${audits.length ? `<table><tr><th>Business</th><th>Named</th><th>From</th><th>When</th></tr>${audits.slice(0, 60).map((a) => `<tr><td><a href="/r/${a.id}" target="_blank" rel="noopener">${esc(a.name)}</a>${a.email ? `<br><span class="small muted">${esc(a.email)}</span>` : ""}</td><td>${esc(a.score)}</td><td>${esc(a.origin)}</td><td class="small">${new Date(a.at).toLocaleString("en-US", { timeZone: "America/New_York" })}</td></tr>`).join("")}</table>` : '<p class="muted">No reports yet.</p>'}</div>

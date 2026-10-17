@@ -74,6 +74,7 @@ export default {
   },
 
   async scheduled(event, env, ctx) {
+    ctx.waitUntil(env.PREVIEWS.put("cron:last", String(Date.now())).catch(() => {}));
     ctx.waitUntil(runPending(env, listPending));
     ctx.waitUntil(runImageJobs(env).catch((e) => console.log("Image jobs failed", e.message)));
     ctx.waitUntil(runNurture(env).catch((e) => console.log("Follow-ups failed", e.message)));
@@ -527,7 +528,7 @@ async function admin(req, url, env) {
   }
   if (!safeEqual(token, env.ADMIN_TOKEN)) throw httpError(404, "Page not found.");
   const noStore = { "Cache-Control": "no-store", "X-Robots-Tag": "noindex" };
-  if (url.pathname === "/admin/audits" || url.pathname === "/admin/audit" || url.pathname === "/admin/video" || url.pathname === "/admin/page" || url.pathname === "/admin/listings" || url.pathname === "/admin/outreach" || url.pathname === "/admin/reddit" || url.pathname === "/admin/prospects" || url.pathname.startsWith("/admin/youtube")) return await aiAdmin(req, url, env, form, token);
+  if (url.pathname === "/admin/audits" || url.pathname === "/admin/audit" || url.pathname === "/admin/video" || url.pathname === "/admin/page" || url.pathname === "/admin/listings" || url.pathname === "/admin/outreach" || url.pathname === "/admin/reddit" || url.pathname === "/admin/prospects" || url.pathname === "/admin/check" || url.pathname.startsWith("/admin/youtube")) return await aiAdmin(req, url, env, form, token);
 
   let m;
   if (req.method === "GET" && (m = url.pathname.match(/^\/admin\/site\/(o[a-z0-9]{12})$/))) {
