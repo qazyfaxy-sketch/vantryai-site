@@ -1,5 +1,5 @@
 import http from "node:http";
-const R = "${process.env.ENGINE_SRC || new URL('../../src', import.meta.url).pathname}";
+const R = process.env.ENGINE_SRC || new URL('../../src', import.meta.url).pathname;
 const worker = (await import(`${R}/worker.js`)).default;
 const { saveClient, getClient } = await import(`${R}/ai.js`);
 const { saveAudit } = await import(`${R}/lib/aiscan.js`);
