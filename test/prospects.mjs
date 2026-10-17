@@ -34,6 +34,7 @@ globalThis.fetch = async (input, opts = {}) => {
   if (url.host === "api.anthropic.com") {
     const b = JSON.parse(body);
     if (b.tools) { const a = answerText(); return ok200({ content: [{ type: "text", text: a, citations: [] }] }); }
+    if (b.system.includes("sort replies")) { const m = b.messages[0].content; return ok200({ content: [{ type: "text", text: JSON.stringify(m.includes("Tuesday") ? { label: "interested", summary: "Wants to talk Tuesday." } : m.includes("How much") ? { label: "question", summary: "Asks about price." } : { label: "other", summary: "Unclear reply." }) }] }); }
     if (b.system.includes("exact questions")) return ok200({ content: [{ type: "text", text: JSON.stringify(["What is the best scheduling software for dental offices?", "Which scheduling app suits a small practice?", "Top dental booking tools?"]) }] });
     if (b.system.includes("list the companies")) {
       const items = JSON.parse(b.messages[0].content);
@@ -46,6 +47,14 @@ globalThis.fetch = async (input, opts = {}) => {
     return ok200({ output_text: full, output: [{ type: "message", content: [{ type: "output_text", text: full, annotations: [] }] }] });
   }
   if (/^(www\.)?(beta\.io|gamma\.io|acme\.com|named\.io|co\d\.com)$/.test(url.host)) return new Response("<html><body><h1>Beta Books</h1><p>Simple bookkeeping software for freelancers who hate spreadsheets.</p></body></html>");
+  if (url.host === "found.io" || url.host === "www.found.io") {
+    if (url.pathname === "/robots.txt") return new Response("User-agent: *\nAllow: /\n", { status: 200 });
+    if (url.pathname === "/contact") return new Response('<html><body>Write to <a href="mailto:Ana@found.io">Ana</a> or other@gmail.com</body></html>');
+    return new Response('<html><head><meta property="og:site_name" content="Found IO"></head><body><a href="/contact">Contact us</a></body></html>');
+  }
+  if (url.host === "nomail.io") return url.pathname === "/robots.txt" ? new Response("", { status: 404 }) : new Response("<html><body>No email here</body></html>");
+  if (url.host === "blocked.io") return url.pathname === "/robots.txt" ? new Response("User-agent: *\nDisallow: /\n") : new Response("<html></html>");
+  if (url.host === "info.io") return url.pathname === "/robots.txt" ? new Response("", { status: 404 }) : new Response('<html><body>Email info@info.io or help@info.io or x@evil.com</body></html>');
   if (url.host === "api.resend.com") { const b = JSON.parse(body); emails.push(b); return ok200({ id: "msg" + emails.length }); }
   throw new Error(`Unexpected fetch ${url}`);
 };
@@ -183,6 +192,53 @@ check(emails.length === n2, "paused means nothing sends");
 check((await admin()).includes("PAUSED"), "the page shows the pause");
 await call("/admin/prospects", form({ action: "resume" }));
 check(!data().paused, "you can resume");
+
+// ---------- replies ----------
+{
+  const { handleReply } = await import("../src/lib/prospects.js");
+  const mailsBefore = emails.length;
+  let r = await handleReply(env, { from: "Pat <x7@x7.com>", text: "Sounds interesting, can we talk Tuesday?" });
+  check(r.label === "interested" && data().rows.find((x) => x.id === "px7").st === "replied" && !!data().rows.find((x) => x.id === "px7").replied, "an interested reply is sorted and stops follow-ups");
+  check(emails.length === mailsBefore + 1 && emails.at(-1).to[0] === env.OWNER_EMAIL && /Interested: X7/.test(emails.at(-1).subject), "you're emailed about an interested reply");
+  r = await handleReply(env, { from: "x8@x8.com", text: "How much does it cost?\n> On Monday Vince wrote: hi" });
+  check(r.label === "question", "a question is sorted as a question");
+  r = await handleReply(env, { from: "x9@x9.com", text: "Please unsubscribe me from this." });
+  check(r.label === "optout" && data().rows.find((x) => x.id === "px9").st === "optedout" && !!store.get("sup:x9@x9.com"), "an opt-out reply goes on the never-email list");
+  r = await handleReply(env, { from: "x10@x10.com", text: "No thanks, not interested." });
+  check(r.label === "no" && !!store.get("sup:x10@x10.com"), "'not interested' stops all future email");
+  r = await handleReply(env, { from: "x11@x11.com", text: "I am out of office until Monday." });
+  check(r.label === "auto" && !data().rows.find((x) => x.id === "px11").replied, "an out-of-office reply doesn't count as a real reply");
+  r = await handleReply(env, { from: "stranger@nowhere.com", text: "hello" });
+  check(r.matched === false && data().inbox.length === 1, "replies from unknown senders are saved, not lost");
+  r = await handleReply(env, { from: "someone-else@x12.com", text: "Please remove me" });
+  check(r.matched && data().rows.find((x) => x.id === "px12").st === "optedout" && !!store.get("sup:someone-else@x12.com"), "a reply from a colleague at the same company is matched and both addresses are blocked");
+  const hook = await call("/api/email/events", await sign({ type: "email.received", data: { from: "Pat <x13@x13.com>", text: "Remove me from your list." } }));
+  check(hook.status === 200 && data().rows.find((x) => x.id === "px13").st === "optedout", "the Resend inbound webhook sorts replies automatically");
+  await call("/admin/prospects", form({ action: "reply", from: "x14@x14.com", text: "Sounds interesting, can we talk Tuesday?" }));
+  const pg = await admin();
+  check(pg.includes("Wants to talk Tuesday.") && pg.includes("Paste a reply"), "the page lists replies and lets you paste one");
+}
+
+// ---------- finding contacts ----------
+{
+  const { findFor, addSites } = await import("../src/lib/prospects.js");
+  const f = await findFor("found.io");
+  check(f.email === "ana@found.io" && f.name === "Found IO", "finds the email the site publishes on its own domain, from its contact page");
+  check((await findFor("nomail.io")).why.includes("no public contact"), "no email on the site means no prospect (we never guess)");
+  check((await findFor("blocked.io")).why.includes("robots"), "a site that blocks bots in robots.txt is left alone");
+  const g = await findFor("info.io");
+  check(g.email === "info@info.io" && g.generic === true, "a general address is used only if there's nothing better; other-domain and help@ addresses are ignored");
+  const before = data().rows.length;
+  const r2 = await addSites(env, "found.io\nnomail.io, nomail.io\nBlocked Co | blocked.io\nnot a site\nfound.io");
+  check(r2.added === 3 && r2.dupes === 1 && r2.bad.length === 1, "pasting sites queues them and skips repeats and junk");
+  await call("/admin/prospects", form({ action: "sites", sites: "info.io" }));
+  check(data().queue.length === 4, "the admin form queues sites too");
+  await runClientProspects(env);
+  check(data().queue.length === 1 && data().rows.length === before + 1 && data().rows.find((x) => x.email === "ana@found.io")?.found === true, "the timer looks up 3 at a time and adds the ones with a public email");
+  check(data().noMail.length === 2, "sites with no usable email are listed, not emailed");
+  await runClientProspects(env);
+  check((await admin()).includes("Find contacts for me"), "page shows the finder");
+}
 
 // ---------- admin card and routes ----------
 check((await (await call("/admin?token=admin-secret-123")).text()).length > 0, "main admin still loads");
