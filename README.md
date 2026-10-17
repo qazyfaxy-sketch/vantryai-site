@@ -129,6 +129,10 @@ For Growth (up to 2 answers a month) and Pro (up to 4) clients. Reddit is the mo
 
 It never posts, never uses accounts, never asks for upvotes, and drafts at most one answer per subreddit every 30 days. Settings: `REDDIT_BUDGET`, `REDDIT_OFF="true"`. Test: `node test/reddit.mjs`.
 
+## Client dashboard (no setup needed)
+
+Every report email now links the client's private dashboard at `/d/<clientId>?k=...` (a signed link, no password to forget). It shows the score by report, a question-by-question "then and now" from the saved answers (newly named, no longer named, never estimated), and what we did: live pages, live videos, listings, Reddit answers posted and notes sent. It says plainly that AI answers vary and nothing is promised. You can open any client's dashboard from the admin page. Test: `node test/dashboard.mjs`.
+
 ## Videos: one-time setup (about 30 minutes)
 
 1. **A YouTube channel for Vantry.** In YouTube, create a channel for your first category, e.g. "Dental Software Guide". Verify it with your phone (youtube.com/verify) so custom thumbnails work.

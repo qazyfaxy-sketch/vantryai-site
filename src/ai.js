@@ -21,6 +21,7 @@ import { isVideoPath, videoRoute, videoAdmin, videoCard, runVideos } from "./lib
 import { isListingsPath, listingsRoute, listingsAdmin, listingsCard, runListings } from "./lib/listings.js";
 import { isOutreachPath, outreachRoute, outreachAdmin, outreachCard, runOutreach } from "./lib/outreach.js";
 import { isRedditPath, redditRoute, redditAdmin, redditCard, runReddit } from "./lib/reddit.js";
+import { isDashPath, dashRoute, dashUrl, dashCard } from "./lib/dashboard.js";
 import { isSitePath, siteRoute, siteAdmin, siteCard, runSiteWork, PAGES_PER_MONTH } from "./lib/sitefix.js";
 
 export const AI_PLANS = {
@@ -43,7 +44,7 @@ const cancelText = (env) =>
 const sign = "Thanks,\nVince\nVantry · vantryai.com";
 
 export function isAiPath(p) {
-  return isVideoPath(p) || isSitePath(p) || isListingsPath(p) || isOutreachPath(p) || isRedditPath(p) || p === "/api/report" || p === "/api/audit/batch" || p === "/api/ai/checkout" || /^\/r\/a[a-z0-9]{11}$/.test(p) || /^\/ai\/welcome\/c[a-z0-9]{11}$/.test(p) || /^\/start\/c[a-z0-9]{11}$/.test(p);
+  return isVideoPath(p) || isSitePath(p) || isListingsPath(p) || isOutreachPath(p) || isRedditPath(p) || isDashPath(p) || p === "/api/report" || p === "/api/audit/batch" || p === "/api/ai/checkout" || /^\/r\/a[a-z0-9]{11}$/.test(p) || /^\/ai\/welcome\/c[a-z0-9]{11}$/.test(p) || /^\/start\/c[a-z0-9]{11}$/.test(p);
 }
 
 export async function aiRoute(req, url, env, cors) {
@@ -54,6 +55,7 @@ export async function aiRoute(req, url, env, cors) {
   if (isListingsPath(p)) return await listingsRoute(req, url, env, { getClient, saveClient });
   if (isOutreachPath(p)) return await outreachRoute(req, url, env, { getClient, saveClient });
   if (isRedditPath(p)) return await redditRoute(req, url, env, { getClient, saveClient });
+  if (isDashPath(p)) return await dashRoute(req, url, env, { getClient });
   if (req.method === "POST" && p === "/api/report") return json(await freeReport(req, env, url), 200, cors);
   if (req.method === "POST" && p === "/api/audit/batch") return json(await batch(req, env, url));
   if (req.method === "POST" && p === "/api/ai/checkout") return json(await checkout(req, env, url), 200, cors);
@@ -363,6 +365,7 @@ ${await siteCard(env, clients, token)}
 ${await listingsCard(env, clients, token)}
 ${await outreachCard(env, clients, token)}
 ${await redditCard(env, clients, token)}
+${await dashCard(env, clients)}
 <div class="card"><h2>Recent reports</h2>${audits.length ? `<table><tr><th>Business</th><th>Named</th><th>From</th><th>When</th></tr>${audits.slice(0, 60).map((a) => `<tr><td><a href="/r/${a.id}" target="_blank" rel="noopener">${esc(a.name)}</a>${a.email ? `<br><span class="small muted">${esc(a.email)}</span>` : ""}</td><td>${esc(a.score)}</td><td>${esc(a.origin)}</td><td class="small">${new Date(a.at).toLocaleString("en-US", { timeZone: "America/New_York" })}</td></tr>`).join("")}</table>` : '<p class="muted">No reports yet.</p>'}</div>
 <p><a href="/admin?token=${t}">Back to website orders</a></p>
 </main>

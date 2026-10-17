@@ -9,6 +9,7 @@
 // 10-minute cron and finish over an hour or two. Nothing here can throw out of the cron.
 import { availableEngines, askOne, brandTerms, finishAudit, getAudit, writeQuestions } from "./aiscan.js";
 import { stripe } from "./stripe.js";
+import { dashUrl } from "./dashboard.js";
 import { sendEmail } from "./email.js";
 
 export const QUESTION_LIMIT = { starter: 10, growth: 25, pro: 50 };
@@ -223,6 +224,9 @@ ${headline}
 
 ${newlyNamed.length ? `New this month, you're now named for:\n${newlyNamed.slice(0, 10).map(label).join("\n")}\n\n` : ""}${lost.length ? `Answers that stopped naming you (AI answers change, we're on it):\n${lost.slice(0, 5).map(label).join("\n")}\n\n` : ""}${s.competitors.length ? `Named most often instead of you: ${s.competitors.slice(0, 3).map((x) => x.name).join(", ")}.\n\n` : ""}Your full report, with every answer:
 ${reportUrl(env, audit.id)}
+
+Your dashboard (then and now, and everything we've done):
+${await dashUrl(env, c.id)}
 
 ${doneForYou ? "What we're working on this month:" : "Your fix list for this month, most important first:"}
 ${fixText || "Nothing urgent. Keep going."}

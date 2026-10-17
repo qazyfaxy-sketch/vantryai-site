@@ -244,6 +244,7 @@ c1 = cl();
 check(!c1.job && c1.audits.length === 1 && c1.audits[0].kind === "baseline", "the starting report finishes over a few timer runs");
 const startMail = emails.find((e) => e.to[0] === "owner@chairside.io");
 check(startMail && startMail.subject.startsWith("Your starting AI visibility report") && startMail.text.includes("/r/a"), "the client gets their starting report by email");
+check(/\/d\/c[a-z0-9]{11}\?k=/.test(startMail.text), "every report email links the client's private dashboard");
 check(startMail.text.includes("GPTBot") && startMail.text.includes("llms.txt") && startMail.text.includes("structured data"), "the fix list comes from a real check of their website");
 check(!startMail.text.includes("pricing page"), "fixes they already have (a pricing page) aren't listed");
 check(startMail.text.includes("What we're working on this month"), "Growth clients see it as work we're doing for them");
